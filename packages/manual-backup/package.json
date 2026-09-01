@@ -1,0 +1,15 @@
+{
+  "name": "@lena/manual-backup",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@lena/backup": "workspace:*",
+    "@lena/core": "workspace:*",
+    "ts-pattern": "5.9.0",
+    "zod": "4.5.4"
+  }
+}

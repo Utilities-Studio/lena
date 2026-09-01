@@ -1,0 +1,26 @@
+{
+  "name": "lena",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint --deny-warnings -D correctness -D suspicious -D perf packages",
+    "lint:type-aware": "oxlint --type-aware --type-check --deny-warnings -D correctness -D suspicious -D perf packages",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test packages",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@changesets/cli": "3.0.1",
+    "fast-check": "4.9.0",
+    "knip": "6.34.0",
+    "publint": "0.3.24"
+  },
+  "packageManager": "bun@1.4.0"
+}

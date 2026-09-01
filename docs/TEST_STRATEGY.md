@@ -1,0 +1,87 @@
+# Lena test strategy
+
+## Test levels
+
+### Unit
+
+Pure validators, reducers, selectors, parsers, planners, rankings, and deterministic state transitions. These run without native modules or a database.
+
+### Contract
+
+The same behavior suite runs against each implementation of a real runtime boundary, such as Expo SQLite and OP-SQLite. Contract suites assert externally visible results, not SDK call order.
+
+### Integration
+
+Real local filesystem, cryptography, SQLite, provider sandbox, native module, or StoreKit configuration. Tests use controlled test containers and never production infrastructure.
+
+### Signed-device acceptance
+
+Owner-run scenarios on supported iOS and Android hardware, where in scope. These prove keychain, SQLCipher, background interruption, Files/provider behavior, StoreKit, GPS, model resources, and build configuration.
+
+## Failure injection
+
+Failure injection occurs at real package-owned boundaries or through genuine caller-selected test strategies. Production APIs never accept a generic dependency bag for test convenience.
+
+State-machine unit tests enumerate every durable state and event. Native integration tests terminate the process at each externally visible checkpoint and then reopen from persisted state.
+
+Every authority-bearing contract has adversarial tests for structural forgery, object spread, JSON
+round trip, replay, exact-identity mismatch, cross-vault use, cross-provider use, stale attempt use,
+timestamp regression, restart behavior, and one-shot consumption. Consumer integration must also
+prove that Metro resolves one physical copy of each module whose opacity relies on module-local
+`WeakSet` or `WeakMap` state.
+
+## Required matrices
+
+### Vault and database
+
+- New encrypted vault.
+- Existing supported schemas.
+- Wrong and missing key.
+- Duplicate, skipped, reordered, and failed migration.
+- Transaction rollback and concurrent read/write.
+- Disk full, interrupted write, close/reopen, and integrity failure.
+
+### Backup and restore
+
+- 5 MB, 50 MB, and 250 MB payloads.
+- Offline, token expiry, quota, corruption, truncation, duplicate object, and account change.
+- Process death at every durable stage.
+- Wrong key, wrong vault, incompatible schema, insufficient space, and attachment mismatch.
+- Active-vault rollback after every pointer boundary.
+- Deterministic authenticated-manifest serialization and separate content/object checksum binding.
+- Provider-commit interruption followed by exact immutable-object conflict reconciliation.
+- Parsed verification claims cannot authorize retention, export, restore, reconciliation, or delete.
+- Local and remote evidence is bound to the exact ciphertext URI, object path, digest, length,
+  generation, claim, provider, vault, and attempt.
+- Backup and restore lifecycle timestamps never move backward.
+
+### Search and AI
+
+- Unicode and hostile FTS query input.
+- 10k and 100k representative records.
+- Model/index upgrade, partial rebuild, deletion, and eviction.
+- Unsupported device, low memory, interrupted download, thermal throttling, and repeated inference lifecycle.
+- Stale events from an earlier search `rebuild_id` or model `install_id` are rejected.
+
+### StoreKit
+
+- Exact verified product, unverified, wrong product, pending, cancel, duplicate, refund, revocation,
+  relaunch, reinstall, restore, and purchaser change.
+- Out-of-order launch snapshots and live facts under a monotonic adapter sequence.
+- Lifetime plus annual combinations, offline subscription expiry, catalog replacement, and
+  product-type mismatch.
+- Forged, spread, and serialized event/state rejection, including active, revoke, then attempted
+  stale-fact resurrection through a caller-minted newer snapshot.
+- Static proof that payment packages cannot import destructive vault functions.
+
+### GPS
+
+- Border bounce, antimeridian, polygon holes, stale/out-of-order readings, low accuracy, dwell, repeated effects, manual correction, background restart, and battery.
+- Static proof that persistable types and serializers contain no coordinate fields.
+- Forged, serialized, cross-sample, and cross-dataset resolution evidence is rejected.
+
+## Verification command
+
+The repository `check` command must run formatting verification, lint, strict typecheck, and all
+portable unit and property tests. Native and signed-device evidence is tracked separately in
+`docs/STATUS.md`.

@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "bun": true,
+  "ignoreDependencies": ["@arethetypeswrong/cli", "@changesets/cli", "publint"],
+  "workspaces": {
+    "packages/*": {
+      "entry": ["src/index.ts", "test/**/*.test.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
+    }
+  }
+}

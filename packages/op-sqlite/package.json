@@ -1,0 +1,14 @@
+{
+  "name": "@lena/op-sqlite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@lena/core": "workspace:*",
+    "@lena/vault": "workspace:*",
+    "es-toolkit": "1.52.0"
+  }
+}

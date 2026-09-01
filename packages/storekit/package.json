@@ -1,0 +1,16 @@
+{
+  "name": "@lena/storekit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@lena/core": "workspace:*",
+    "date-fns": "4.4.0",
+    "es-toolkit": "1.52.0",
+    "ts-pattern": "5.9.0",
+    "zod": "4.5.4"
+  }
+}
