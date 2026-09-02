@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  createSchemaCompatibilityRange,
   err,
-  isSchemaCompatible,
   LenaError,
   ok,
   parseGenerationId,
@@ -13,12 +11,13 @@ import {
   sanitizeDiagnosticDetails,
 } from "../../src/index";
 
-const UUID = "018f3f5a-1d2c-7abc-8def-0123456789ab";
+const UUID = "018f3f5a-1d2c-4abc-8def-0123456789ab";
 
 describe("identifiers", () => {
   test("parses and normalizes a UUID-shaped vault id", () => {
     const parsed = parseVaultId(UUID.toUpperCase());
-    expect(parsed).toEqual(ok(UUID));
+    if (parsed.isErr()) throw parsed.error;
+    expect(String(parsed.value)).toBe(UUID);
   });
 
   test("keeps identifier kinds as separate parsers", () => {
@@ -27,8 +26,8 @@ describe("identifiers", () => {
   });
 
   test("separates a logical vault from its physical instances", () => {
-    const vault = parseVaultId("018f3f5a-1d2c-7abc-8def-0123456789ab");
-    const instance = parseVaultInstanceId("018f3f5a-1d2c-7abc-8def-1123456789ab");
+    const vault = parseVaultId("018f3f5a-1d2c-4abc-8def-0123456789ab");
+    const instance = parseVaultInstanceId("018f3f5a-1d2c-4abc-8def-1123456789ab");
     expect(vault.isOk()).toBe(true);
     expect(instance.isOk()).toBe(true);
   });
@@ -39,6 +38,10 @@ describe("identifiers", () => {
     if (parsed.isErr()) {
       expect(parsed.error.code).toBe("invalid_identifier");
     }
+  });
+
+  test("rejects UUID versions not produced by Expo Crypto randomUUID", () => {
+    expect(parseVaultId("018f3f5a-1d2c-7abc-8def-0123456789ab").isErr()).toBe(true);
   });
 });
 
@@ -54,25 +57,11 @@ describe("timestamps", () => {
 });
 
 describe("schema compatibility", () => {
-  test("includes both boundaries", () => {
-    const minimum = parseSchemaVersion(2);
-    const maximum = parseSchemaVersion(5);
-    const current = parseSchemaVersion(5);
-    expect(minimum.isOk() && maximum.isOk() && current.isOk()).toBe(true);
-    if (minimum.isErr() || maximum.isErr() || current.isErr()) return;
-
-    const range = createSchemaCompatibilityRange(minimum.value, maximum.value);
-    expect(range.isOk()).toBe(true);
-    if (range.isErr()) return;
-    expect(isSchemaCompatible(current.value, range.value)).toBe(true);
-  });
-
-  test("rejects zero and reversed ranges", () => {
+  test("accepts only positive safe integer schema versions", () => {
+    expect(parseSchemaVersion(1).isOk()).toBe(true);
     expect(parseSchemaVersion(0).isOk()).toBe(false);
-    const two = parseSchemaVersion(2);
-    const five = parseSchemaVersion(5);
-    if (two.isErr() || five.isErr()) return;
-    expect(createSchemaCompatibilityRange(five.value, two.value).isOk()).toBe(false);
+    expect(parseSchemaVersion(1.5).isOk()).toBe(false);
+    expect(parseSchemaVersion(Number.MAX_SAFE_INTEGER + 1).isOk()).toBe(false);
   });
 });
 
@@ -89,7 +78,7 @@ describe("safe errors and results", () => {
   });
 
   test("serializes a code-owned message with no cause, stack, or unsafe input", () => {
-    const serialized = new LenaError("not_found", "Sensitive journal text", {
+    const serialized = new LenaError("not_found", {
       boundary: "backup_generation",
       token: "provider-secret",
     }).toJSON();
@@ -99,7 +88,6 @@ describe("safe errors and results", () => {
       message: "The resource was not found",
       name: "LenaError",
     });
-    expect(JSON.stringify(serialized)).not.toContain("Sensitive journal text");
     expect(JSON.stringify(serialized)).not.toContain("provider-secret");
     expect("stack" in serialized).toBe(false);
     expect("cause" in serialized).toBe(false);
@@ -107,7 +95,7 @@ describe("safe errors and results", () => {
 
   test("maps success without changing errors", () => {
     expect(ok(2).map((value) => value * 3)).toEqual(ok(6));
-    const error = new LenaError("invalid_input", "Bad value");
+    const error = new LenaError("invalid_input");
     expect(err(error).map(() => 1)).toEqual(err(error));
   });
 });

@@ -2,12 +2,9 @@ import { z } from "zod";
 import { LenaError } from "./errors";
 import { err, ok, type Result } from "./result";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function idSchema<Name extends string>(name: Name) {
   return z
-    .string()
-    .regex(UUID_PATTERN)
+    .uuidv4()
     .transform((value) => value.toLowerCase())
     .brand(name);
 }
@@ -35,7 +32,7 @@ function parseId<Schema extends z.ZodType>(
 ): Result<z.output<Schema>, LenaError> {
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_identifier", `Invalid ${kind}`, { kind }));
+    return err(new LenaError("invalid_identifier", { kind }));
   }
 
   return ok(parsed.data);

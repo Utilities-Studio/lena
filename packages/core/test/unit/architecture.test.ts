@@ -12,6 +12,15 @@ function packageSource(packageName: string): string {
   return files.map((file) => readFileSync(resolve(sourceDirectory, file), "utf8")).join("\n");
 }
 
+function packageFiles(packageName: string): string {
+  const testDirectory = resolve(REPOSITORY_ROOT, "packages", packageName, "test");
+  const files = readdirSync(testDirectory, { recursive: true })
+    .map(String)
+    .filter((file) => file.endsWith(".ts"));
+  const tests = files.map((file) => readFileSync(resolve(testDirectory, file), "utf8")).join("\n");
+  return `${packageSource(packageName)}\n${tests}`;
+}
+
 describe("package trust boundaries", () => {
   test("core imports no other Lena package", () => {
     expect(packageSource("core")).not.toContain('from "@lena/');
@@ -60,6 +69,26 @@ describe("package trust boundaries", () => {
     ]) {
       const source = packageSource(packageName);
       expect(source).not.toMatch(/(?:jetseen|becoming)\//i);
+    }
+  });
+
+  test("TypeScript import specifiers omit source extensions", () => {
+    for (const packageName of [
+      "ai",
+      "backup",
+      "core",
+      "expo-sqlite",
+      "google-drive",
+      "gps",
+      "icloud",
+      "manual-backup",
+      "op-sqlite",
+      "search",
+      "storekit",
+      "sync",
+      "vault",
+    ]) {
+      expect(packageFiles(packageName)).not.toMatch(/(?:from|import)\s*["'][^"']+\.ts["']/);
     }
   });
 });

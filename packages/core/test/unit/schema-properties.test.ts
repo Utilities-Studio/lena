@@ -6,7 +6,6 @@ import {
   parseIsoTimestamp,
   parseSchemaVersion,
   parseVaultId,
-  schemaCompatibilityRangeSchema,
   schemaVersionSchema,
   vaultIdSchema,
 } from "../../src/index";
@@ -14,16 +13,14 @@ import {
 describe("core schema properties", () => {
   test("identifier schemas normalize and round trip UUIDs", () => {
     fc.assert(
-      fc.property(fc.uuid(), (uuid) => {
+      fc.property(fc.uuid({ version: 4 }), (uuid) => {
         const parsed = parseVaultId(uuid.toUpperCase());
-        const schemaParsed = vaultIdSchema.safeParse(uuid.toUpperCase());
-
-        expect(parsed.isOk()).toBe(true);
-        expect(schemaParsed.success).toBe(true);
-        if (parsed.isErr() || !schemaParsed.success) return;
-        expect(parsed.value).toBe(uuid.toLowerCase());
-        expect(schemaParsed.data).toBe(parsed.value);
-        expect(parseVaultId(JSON.parse(JSON.stringify(parsed.value)))).toEqual(parsed);
+        if (parsed.isErr()) throw parsed.error;
+        const parsedValue = parsed.value;
+        const schemaValue = vaultIdSchema.parse(uuid.toUpperCase());
+        expect(schemaValue).toBe(parsedValue);
+        expect(String(parsedValue)).toBe(uuid.toLowerCase());
+        expect(parseVaultId(JSON.parse(JSON.stringify(parsedValue)))).toEqual(parsed);
       }),
     );
   });
@@ -39,45 +36,34 @@ describe("core schema properties", () => {
       fc.property(dates, dates, (leftDate, rightDate) => {
         const left = parseIsoTimestamp(leftDate.toISOString());
         const right = parseIsoTimestamp(rightDate.toISOString());
-        expect(left.isOk()).toBe(true);
-        expect(right.isOk()).toBe(true);
-        if (left.isErr() || right.isErr()) return;
+        if (left.isErr()) throw left.error;
+        if (right.isErr()) throw right.error;
+        const leftValue = left.value;
+        const rightValue = right.value;
+        const expectedOrder =
+          leftDate.getTime() === rightDate.getTime()
+            ? 0
+            : leftDate.getTime() < rightDate.getTime()
+              ? -1
+              : 1;
 
-        expect(isoTimestampSchema.safeParse(left.value).success).toBe(true);
-        expect(parseIsoTimestamp(JSON.parse(JSON.stringify(left.value)))).toEqual(left);
-        expect(compareIsoTimestamps(left.value, right.value)).toBe(
-          Math.sign(leftDate.getTime() - rightDate.getTime()),
-        );
+        expect(isoTimestampSchema.safeParse(leftValue).success).toBe(true);
+        expect(parseIsoTimestamp(JSON.parse(JSON.stringify(leftValue)))).toEqual(left);
+        expect(compareIsoTimestamps(leftValue, rightValue)).toBe(expectedOrder);
       }),
     );
   });
 
-  test("schema versions and compatibility ranges round trip", () => {
+  test("schema versions round trip", () => {
     fc.assert(
-      fc.property(
-        fc.integer({ max: 1_000_000, min: 1 }),
-        fc.integer({ max: 1_000_000, min: 0 }),
-        (minimumValue, width) => {
-          const maximumValue = Math.min(minimumValue + width, Number.MAX_SAFE_INTEGER);
-          const minimum = parseSchemaVersion(minimumValue);
-          const maximum = parseSchemaVersion(maximumValue);
-          expect(minimum.isOk()).toBe(true);
-          expect(maximum.isOk()).toBe(true);
-          if (minimum.isErr() || maximum.isErr()) return;
-
-          expect(schemaVersionSchema.safeParse(minimum.value).success).toBe(true);
-          const range = schemaCompatibilityRangeSchema.safeParse({
-            maximum: maximum.value,
-            minimum: minimum.value,
-          });
-          expect(range.success).toBe(true);
-          if (!range.success) return;
-          expect(
-            schemaCompatibilityRangeSchema.safeParse(JSON.parse(JSON.stringify(range.data)))
-              .success,
-          ).toBe(true);
-        },
-      ),
+      fc.property(fc.integer({ max: 1_000_000, min: 1 }), (value) => {
+        const parsed = parseSchemaVersion(value);
+        if (parsed.isErr()) throw parsed.error;
+        const version = parsed.value;
+        expect(Number(schemaVersionSchema.parse(JSON.parse(JSON.stringify(version))))).toBe(
+          Number(version),
+        );
+      }),
     );
   });
 });

@@ -25,9 +25,6 @@ export const lenaErrorCodeSchema = z.enum([
 
 export type LenaErrorCode = z.infer<typeof lenaErrorCodeSchema>;
 
-export type SafeDiagnosticValue = boolean | number | string | null;
-export type SafeDiagnosticDetails = Readonly<Record<string, SafeDiagnosticValue>>;
-
 const MAX_DIAGNOSTIC_KEYS = 16;
 const SAFE_DIAGNOSTIC_TOKEN = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/;
 const safeDiagnosticTokenSchema = z.string().regex(SAFE_DIAGNOSTIC_TOKEN);
@@ -60,6 +57,12 @@ export const safeDiagnosticDetailsSchema = z
     vaultSchemaVersion: safeDiagnosticNumberSchema.optional(),
   })
   .readonly();
+
+export type SafeDiagnosticDetails = z.infer<typeof safeDiagnosticDetailsSchema>;
+export type SafeDiagnosticValue = Exclude<
+  SafeDiagnosticDetails[keyof SafeDiagnosticDetails],
+  undefined
+>;
 const SAFE_STRING_DETAIL_KEYS: ReadonlySet<string> = new Set([
   "boundary",
   "capability",
@@ -87,7 +90,7 @@ const SAFE_NUMBER_DETAIL_KEYS: ReadonlySet<string> = new Set([
   "vaultSchemaVersion",
 ]);
 
-const SAFE_ERROR_MESSAGES: Readonly<Record<LenaErrorCode, string>> = Object.freeze({
+const SAFE_ERROR_MESSAGES = {
   already_exists: "The resource already exists",
   authentication_required: "Authentication is required",
   cancelled: "The operation was cancelled",
@@ -106,13 +109,15 @@ const SAFE_ERROR_MESSAGES: Readonly<Record<LenaErrorCode, string>> = Object.free
   temporarily_unavailable: "The operation is temporarily unavailable",
   unsupported: "The operation is unsupported",
   wrong_key_or_corrupt: "The key is wrong or the data is corrupt",
-});
+} as const satisfies Readonly<Record<LenaErrorCode, string>>;
+
+const EMPTY_SAFE_DIAGNOSTIC_DETAILS = safeDiagnosticDetailsSchema.parse({});
 
 export class LenaError extends Error {
   readonly code: LenaErrorCode;
   readonly details: SafeDiagnosticDetails;
 
-  constructor(code: LenaErrorCode, _internalMessage: string, details: SafeDiagnosticDetails = {}) {
+  constructor(code: LenaErrorCode, details: Readonly<Record<string, unknown>> = {}) {
     super(SAFE_ERROR_MESSAGES[code]);
     this.name = "LenaError";
     this.code = code;
@@ -134,7 +139,9 @@ export class LenaError extends Error {
   }
 }
 
-export function sanitizeDiagnosticDetails(details: SafeDiagnosticDetails): SafeDiagnosticDetails {
+export function sanitizeDiagnosticDetails(
+  details: Readonly<Record<string, unknown>>,
+): SafeDiagnosticDetails {
   const entries = take(Object.entries(details), MAX_DIAGNOSTIC_KEYS);
   const safeEntries: [string, SafeDiagnosticValue][] = [];
   for (const [key, value] of entries) {
@@ -160,7 +167,7 @@ export function sanitizeDiagnosticDetails(details: SafeDiagnosticDetails): SafeD
   }
 
   const parsed = safeDiagnosticDetailsSchema.safeParse(Object.fromEntries(safeEntries));
-  return parsed.success ? (parsed.data as SafeDiagnosticDetails) : Object.freeze({});
+  return parsed.success ? parsed.data : EMPTY_SAFE_DIAGNOSTIC_DETAILS;
 }
 
 export function expectRecord(
@@ -169,17 +176,12 @@ export function expectRecord(
 ): Result<Record<string, unknown>, LenaError> {
   const parsed = unknownRecordSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Expected an object", { boundary }));
+    return err(new LenaError("invalid_input", { boundary }));
   }
 
   return ok(parsed.data);
 }
 
-/**
- * Keeps record identity intact. This schema is intentionally a predicate rather
- * than an object clone so generic boundary checks cannot duplicate opaque
- * runtime-authority objects backed by WeakSet or WeakMap membership.
- */
 export const unknownRecordSchema = z.custom<Record<string, unknown>>(
   (value) => typeof value === "object" && value !== null && !Array.isArray(value),
 );
