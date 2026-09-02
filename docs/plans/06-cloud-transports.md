@@ -9,13 +9,14 @@ Narrow transports that store and retrieve exact encrypted backup objects while `
 - Upload one immutable local file to one exact remote object path.
 - Download one exact remote object into a staging path.
 - List and inspect exact generation metadata.
-- Delete one exact object only after backup-core produces an approved cleanup plan.
+- Delete one exact object only inside a runtime service that rechecks the current retention ledger;
+  a parsed cleanup plan alone never authorizes I/O.
 - Surface normalized retryable, authentication, quota, not-found, conflict, and fatal failures.
 - Reconcile an immutable-name conflict only when provider metadata proves the exact encrypted
   object already committed before process termination.
 - Keep authenticated manifests out of provider metadata.
-- Require exact runtime local verification before upload and exact runtime remote verification before
-  reconciliation or deletion.
+- Require exact runtime local verification before upload and exact runtime remote verification plus
+  a current ledger check before reconciliation or deletion.
 - Bind resumable checkpoints to the upload claim, provider, vault, generation, local URI, remote
   path, checksum, and byte length.
 
@@ -32,9 +33,12 @@ Narrow transports that store and retrieve exact encrypted backup objects while `
 - Handle duplicate names by immutable generation identity and exact provider object id.
 - Access-token acquisition and refresh remain application/provider-auth responsibilities.
 
-## Candidate dependency
+## Approved bridge
 
-`react-native-cloud-storage` is the first transport spike. `react-native-cloud-sync` remains a second experimental bake-off because its sync policy must not override Lena's immutable backup protocol.
+`react-native-cloud-storage@3.1.0` is the host peer for iCloud and Google Drive file operations.
+Its mutable write/delete API stays behind Lena's immutable path, verification, and retention rules.
+`react-native-cloud-sync` remains a later experimental bake-off because its sync policy must not
+override Lena's immutable backup protocol.
 
 ## Tests
 
@@ -42,8 +46,8 @@ Narrow transports that store and retrieve exact encrypted backup objects while `
 - Pagination, duplicate names, stale indexes, resumed uploads, token expiry, quota, account change, and retry persistence.
 - Process death after provider commit and exact-object conflict reconciliation.
 - A failed list or metadata call creates no generation and deletes nothing.
-- Parsed receipts, forged evidence, copied capabilities, stale claims, cross-provider objects,
-  wrong paths, wrong digests, and replayed delete plans are rejected.
+- Malformed receipts, stale claims, cross-provider objects, wrong paths, wrong digests, and replayed
+  delete plans cannot bypass the runtime ledger recheck.
 
 ## Native gate
 

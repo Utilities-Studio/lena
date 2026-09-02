@@ -9,8 +9,8 @@ Pure offline country resolution and transition primitives that persist only priv
 - Ephemeral coordinate sample accepted only by the resolver boundary.
 - Zod-validated ephemeral samples, boundary datasets, policies, and events without using parsing
   to recreate runtime authority.
-- Modular Turf point-in-polygon, distance, and GeoJSON primitives over an audited simplified
-  boundary dataset.
+- One Flatbush index per validated boundary dataset, followed by modular Turf point-in-polygon,
+  distance, bounds, and GeoJSON primitives only for matching candidates.
 - Persistable country observation with no coordinates.
 - date-fns duration arithmetic, es-toolkit collection mechanics, and exhaustive ts-pattern state
   transitions where the reducer is complex.
@@ -24,7 +24,8 @@ Pure offline country resolution and transition primitives that persist only priv
 - A detected transition is a proposal, not canonical travel data.
 - Applications own approval, trip creation, and legal calculations.
 - Manual correction wins over automatic observation.
-- Coordinate samples, datasets, resolutions, and persistable observations are runtime opaque.
+- A resolution is transiently bound to its exact coordinate sample. The coordinate-free
+  persistable observation is strict schema data, not an authority token.
 - A country resolution is bound to the exact sample and dataset used to produce it.
 - Turf provides geometry only. Lena owns input limits, antimeridian normalization, country
   priority, runtime opacity, privacy minimization, and review-first policy.

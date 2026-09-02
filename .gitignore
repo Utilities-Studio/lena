@@ -3,3 +3,5 @@ dist/
 coverage/
 *.tsbuildinfo
 .idea
+.agent-state
+.serena

@@ -66,9 +66,10 @@
 
 - Payment controls features only.
 - Canonical data, export, backup, restore, and support remain reachable.
-- Only opaque facts constructed by the verified native adapter enter entitlement reduction.
-- Complete snapshots, unavailable events, sequence advancement, and reduced catalog state are
-  runtime opaque and adapter/reducer issued.
+- The `expo-iap` service checks current exact-product entitlement and local StoreKit transaction
+  verification before returning paid access.
+- Parsed facts, complete snapshots, unavailable events, sequence values, and cached reducer state
+  are non-authorizing data outside that service.
 - Monotonic adapter sequence prevents an older launch snapshot from erasing newer live facts.
 - A caller cannot resurrect an earlier purchase by wrapping a retained fact in a newer snapshot or
   by replacing fields on a copied reducer state.
@@ -90,16 +91,15 @@ stacks. Internal causes are never included by default.
 
 ### Forged authority
 
-- Persisted records and JSON parsers return untrusted claims, never runtime authorization.
-- Destructive or authority-changing operations require module-local opaque evidence from the exact
-  native verification boundary.
-- Evidence is bound to the full operation identity, including attempt, vault, instance, provider,
-  object path, digest, length, and relevant causal time.
-- Evidence copied with object spread, reconstructed from JSON, replayed, or presented through a
-  second physical package instance is rejected.
-- Failed preconditions do not consume valid one-shot evidence; successful authority changes do.
-- Restart requires fresh verification before persisted claims can authorize deletion, restore,
-  activation, retirement, export, or recovery-obligation completion.
+- Persisted records, parsed JSON, and planner output are untrusted claims, never runtime
+  authorization.
+- The operation that acts rechecks the canonical ledger and real native/runtime resource, bound to
+  the full attempt, vault, instance, provider, object path, digest, length, and causal time.
+- Reconstructed, copied, replayed, stale, or cross-boundary claims cannot skip that check.
+- Failed preconditions leave the canonical state unchanged; successful authority changes commit
+  their state and effect record atomically.
+- Restart requires fresh ledger/native verification before persisted claims can authorize deletion,
+  restore, activation, retirement, export, or recovery-obligation completion.
 
 ## Cryptographic rules
 

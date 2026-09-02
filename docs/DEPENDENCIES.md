@@ -1,10 +1,10 @@
 # Lena dependency decisions
 
-Last reviewed: 2026-09-01.
+Last reviewed: 2026-09-02.
 
-The portable library-first foundation and its lockfile are approved and installed. Native drivers,
-provider bridges, cryptographic and filesystem runtimes, model runtimes, and application adoption
-remain separate approval batches.
+The library-first foundation, cloud-file bridge, and StoreKit bridge are approved and locked.
+Native database drivers, cryptographic/filesystem runtimes, model runtimes, host configuration,
+signed-device evidence, and application adoption remain separate approval batches.
 
 ## Rule
 
@@ -26,22 +26,33 @@ compatibility check, and owner approval before installation.
 | `date-fns`                       | `4.4.0`          | Portable date and canonical UTC-instant arithmetic without implicit device-zone policy.                                                                |
 | `ts-pattern`                     | `5.9.0`          | Exhaustive matching for complex discriminated state machines after Zod validation.                                                                     |
 | `drizzle-orm`                    | `0.45.2`         | One canonical typed schema mapping in `@lena/vault`, then ordinary adapter queries once runtimes exist. It is not a driver or migration authorization. |
+| `drizzle-zod`                    | `0.8.3`          | Derives strict database row contracts from the canonical Drizzle mapping instead of duplicating row shapes.                                            |
+| `canonicalize`                   | `4.0.0`          | RFC 8785 canonical JSON for backup-manifest bytes that are hashed or authenticated.                                                                    |
 | `@turf/boolean-point-in-polygon` | `7.4.0`          | Point-in-polygon geometry only.                                                                                                                        |
 | `@turf/distance`                 | `7.4.0`          | Ephemeral sample distance only.                                                                                                                        |
 | `@turf/helpers`                  | `7.4.0`          | GeoJSON primitive construction only.                                                                                                                   |
+| `@turf/bbox`                     | `7.4.0`          | Bounds for validated country polygons without handwritten or spread-based extrema scans.                                                               |
+| `flatbush`                       | `4.5.0`          | Static per-dataset spatial index that limits Turf checks to candidate country polygons.                                                                |
+| `compare-versions`               | `6.1.1`          | Validated model/runtime semantic-version comparison.                                                                                                   |
 
 Each package declares only the subset it imports. No umbrella `@turf/turf`, Lodash, Remeda,
 handwritten Result union, or duplicate schema-owned interface is approved.
 
 ## Approved development tools
 
-| Tool                    | Approved version | Gate                                                                                                                                    |
-| ----------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `fast-check`            | `4.9.0`          | Property tests for schemas, codecs, reducers, replay, time, GPS, FTS, retention, and restore safety. Named regressions remain required. |
-| `knip`                  | `6.34.0`         | Configured in `knip.json` with package entry points and test/source projects. Findings require review before deletion.                  |
-| `publint`               | `0.3.24`         | Run only after Lena has a built, packed publishable artifact.                                                                           |
-| `@arethetypeswrong/cli` | `0.18.5`         | Run only against the same built package artifact.                                                                                       |
-| `@changesets/cli`       | `3.0.1`          | Installed, but configuration waits for publication, versioning, registry, and package-access decisions.                                 |
+| Tool                     | Approved version | Gate                                                                                                                                    |
+| ------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `fast-check`             | `4.9.0`          | Property tests for schemas, codecs, reducers, replay, time, GPS, FTS, retention, and restore safety. Named regressions remain required. |
+| `knip`                   | `6.34.0`         | Configured in `knip.json` with package entry points and test/source projects. Findings require review before deletion.                  |
+| `oxfmt`                  | `0.66.0`         | The only repository formatter.                                                                                                          |
+| `oxlint`                 | `1.80.0`         | Type-aware and type-checking lint; warnings fail the gate.                                                                              |
+| `oxlint-tsgolint`        | `7.0.2001`       | Pinned type-aware Oxc engine.                                                                                                           |
+| `tsdown`                 | `0.22.14`        | The only package build and declaration path; keeps dependencies external.                                                               |
+| `typescript`             | `7.0.2`          | Declaration compiler used by tsdown. The exact upstream experimental-API warning is suppressed, not other warnings.                     |
+| `lefthook`               | `2.1.12`         | Local hook runner. Installation was script-disabled; hook installation remains an owner-run Git mutation.                               |
+| `publint`                | `0.3.24`         | Run only after Lena has a built, packed publishable artifact.                                                                           |
+| `@arethetypeswrong/core` | `0.18.5`         | Used by tsdown against each built package artifact.                                                                                     |
+| `@changesets/cli`        | `3.0.1`          | Installed, but configuration waits for publication, versioning, registry, and package-access decisions.                                 |
 
 These tools do not run Git, publish, deploy, configure infrastructure, or change a database.
 
@@ -112,11 +123,14 @@ Official sources:
 
 ## Batch D: Personal cloud transports
 
-First spike:
+Approved bridge:
 
 - `react-native-cloud-storage@3.1.0`
 
-It is used only for exact encrypted file operations. Lena still owns immutable generations, encryption, checksums, retry state, verification, retention, selection, staging restore, and rollback.
+It is a host peer dependency used only for exact encrypted file operations in app-private storage.
+Lena still owns immutable generations, encryption, checksums, retry state, verification, retention,
+selection, staging restore, and rollback. Source integration is not signed-device or configuration
+proof.
 
 Second experimental bake-off:
 
@@ -131,11 +145,13 @@ Official sources:
 
 ## Batch E: StoreKit
 
-Primary Expo candidate:
+Approved bridge:
 
 - `expo-iap`, currently `5.4.1` in the OpenIAP monorepo.
 
-It is an Expo Module backed by OpenIAP and StoreKit 2. Lena will use only exact-product verified entitlement facts and explicit restore. Hosted validation, dashboards, and entitlement services are not part of Private Vault.
+It is a host peer dependency backed by OpenIAP and StoreKit 2. Lena uses exact-product, locally
+StoreKit-verified current entitlement and explicit restore. Hosted validation, dashboards, and
+entitlement services are not part of Private Vault.
 
 The package must be checked against Jetseen's Expo 55/RN 0.83 binary before adoption. Becoming does not need payment in its first Lena slice.
 

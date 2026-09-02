@@ -7,6 +7,7 @@ Optional on-device embeddings, reranking, summarization, and structured generati
 ## Public surface
 
 - Model manifest validation, integrity identity, capability, and device requirements.
+- Maintained semantic-version validation and comparison for runtime compatibility.
 - Deterministic text chunking with source revision identities.
 - Embedding validation and rebuildable derived-record metadata.
 - Runtime eligibility and resource-budget decisions.

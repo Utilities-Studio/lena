@@ -10,6 +10,8 @@ Local lexical, semantic, and hybrid retrieval whose indexes are always rebuildab
 - Deterministic FTS result normalization.
 - Vector metadata and embedding-dimension validation.
 - Reciprocal-rank-fusion hybrid ranking.
+- Bounded SQL query plans that ask FTS5 and `sqlite-vec` for top candidates before JavaScript
+  fusion, never whole-index materialization.
 - Index identity derived from schema, source projection, tokenizer, and model version.
 - Rebuild state machine with resumable checkpoints.
 

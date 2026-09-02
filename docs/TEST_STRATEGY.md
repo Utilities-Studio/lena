@@ -24,11 +24,14 @@ Failure injection occurs at real package-owned boundaries or through genuine cal
 
 State-machine unit tests enumerate every durable state and event. Native integration tests terminate the process at each externally visible checkpoint and then reopen from persisted state.
 
-Every authority-bearing contract has adversarial tests for structural forgery, object spread, JSON
-round trip, replay, exact-identity mismatch, cross-vault use, cross-provider use, stale attempt use,
-timestamp regression, restart behavior, and one-shot consumption. Consumer integration must also
-prove that Metro resolves one physical copy of each module whose opacity relies on module-local
-`WeakSet` or `WeakMap` state.
+Every authority-bearing operation has adversarial tests for malformed data, JSON round trips,
+replay, exact-identity mismatch, cross-vault use, cross-provider use, stale attempts, timestamp
+regression, restart behavior, and transaction rollback. Tests prove that structural data alone
+cannot skip the canonical ledger or native/runtime recheck at the operation boundary. WeakMap
+identity tests are reserved for genuine ephemeral bindings such as a GPS sample and its resolution.
+
+Test setup never exits early. Expected Results are unwrapped, expected schemas are parsed, and a
+missing state throws an assertion failure so a broken fixture cannot produce a vacuous pass.
 
 ## Required matrices
 
@@ -82,6 +85,7 @@ prove that Metro resolves one physical copy of each module whose opacity relies 
 
 ## Verification command
 
-The repository `check` command must run formatting verification, lint, strict typecheck, and all
-portable unit and property tests. Native and signed-device evidence is tracked separately in
+The repository `check` command runs formatting verification, a `tsdown` build with declaration
+generation plus Publint and Are the Types Wrong, type-aware and type-checking Oxc lint, portable
+unit/property tests, and Knip. Native and signed-device evidence is tracked separately in
 `docs/STATUS.md`.

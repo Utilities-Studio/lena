@@ -6,7 +6,7 @@ A provider-independent protocol for immutable encrypted generations, durable upl
 
 ## Public surface
 
-- Versioned generation manifest parser and serializer.
+- Versioned generation manifest parser and RFC 8785 canonical serializer.
 - Canonical generation path and immutable object identity.
 - Backup-attempt lifecycle reducer.
 - Provider-neutral discovery and deterministic candidate ordering.
@@ -27,9 +27,11 @@ A provider-independent protocol for immutable encrypted generations, durable upl
 - Manifests contain no email, StoreKit identity, provider token, hosted identity, raw coordinates, or user content.
 - Manifests remain inside authenticated ciphertext and never become provider metadata.
 - Manifest content integrity and final encrypted-object integrity use separate checksums.
-- Persisted verification data is an untrusted claim, never an authorization capability.
-- Runtime verification evidence is bound to the exact ciphertext, claim, provider, object,
-  generation, vault, digest, length, attempt, and causal time required by the operation.
+- Persisted verification data and provider plans are untrusted claims, never authorization
+  capabilities.
+- The operation that acts rechecks the exact ciphertext, claim, provider, object, generation,
+  vault, digest, length, attempt, verified watermark, and causal time at its owned runtime and
+  transaction boundary.
 - Backup and restore event time is monotonic.
 
 ## Crypto boundary
@@ -50,8 +52,8 @@ A provider-independent protocol for immutable encrypted generations, durable upl
 - Manifest limits and untrusted input rejection.
 - Deterministic manifest serialization and exact round trips.
 - Provider-scoped verification bound to the active claim and exact encrypted object.
-- Structural forgery, JSON round trips, object spread, replay, stale attempts, mismatched URIs,
-  cross-provider evidence, timestamp regression, and restart re-verification.
+- Malformed and reconstructed claims, JSON round trips, replay, stale attempts, mismatched URIs,
+  cross-provider evidence, timestamp regression, transaction rollback, and restart re-verification.
 
 ## Native gate
 

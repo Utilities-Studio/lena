@@ -40,14 +40,16 @@ Decision: Private Vault payment authority uses an exact allowlisted StoreKit cat
 
 Decision: coordinates are transient, country resolution is local, persisted observations omit coordinates, and transitions remain proposals until application approval.
 
-## D-011: Persisted claims never regain authority by parsing
+## D-011: Authority is checked where the operation acts
 
-Decision: destructive and authority-changing operations require process-local opaque evidence issued
-at the exact native or reducer boundary. JSON, object spread, parsed persistence, retained older
-facts, and caller-selected sequence numbers cannot authorize activation, retirement, backup
-completion, export, restore, retention, provider mutation, payment access, or GPS transition input.
-After restart, persisted claims must be reverified. Consuming applications must resolve one physical
-copy of every package that owns module-local runtime authority.
+Decision: parsed or persisted data is a claim, never standalone authorization. A destructive or
+authority-changing operation validates its strict input, then rechecks the canonical ledger and
+the real native/runtime resource inside the same service and transaction that acts. Module-local
+WeakSet membership is not durable authority and is not used to simulate database, provider,
+StoreKit, backup, restore, or payment verification. WeakMap is limited to genuine transient object
+bindings and non-authorizing caches, such as binding a GPS resolution to the exact coordinate
+sample that produced it. After restart, persisted claims are revalidated against their owning
+runtime boundary.
 
 ## D-012: Library-first portable mechanics
 
@@ -70,7 +72,17 @@ location bridges remain independently approved and signed-device-gated.
 
 ## D-014: Release tooling does not imply publication readiness
 
-Decision: Knip is configured for workspace static analysis. Publint and Are the Types Wrong run
-only after a publishable package is built and packed. Changesets configuration waits for explicit
-publication, versioning, registry, and access decisions. Installing these tools does not authorize
-Git, publishing, deployment, infrastructure, or database work.
+Decision: `tsdown` is the only package build path. Every package exports `dist` artifacts, and each
+build runs Publint and Are the Types Wrong against those artifacts. Knip is configured for workspace
+static analysis. Changesets configuration waits for explicit publication, versioning, registry,
+and access decisions. Installing or running these tools does not authorize Git, publishing,
+deployment, infrastructure, or database work.
+
+## D-015: Maintained mechanics added at their narrow owners
+
+Decision: `drizzle-zod` derives database row contracts from the canonical Drizzle mapping;
+`canonicalize` owns RFC 8785 backup-manifest bytes; Flatbush narrows GPS polygon candidates before
+modular Turf geometry; `compare-versions` owns model-version comparison; `expo-iap` is the StoreKit
+2 bridge; and `react-native-cloud-storage` is the iCloud and Google Drive file bridge. Native
+packages are host peer dependencies. Their source integration does not prove native configuration,
+signed-device behavior, or runtime readiness.

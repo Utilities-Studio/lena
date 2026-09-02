@@ -10,16 +10,18 @@ A strict Bun and TypeScript monorepo whose packages can be tested independently 
 - One package directory per public `@lena/*` module.
 - Named source exports and package export maps.
 - Repository policy, architecture, security, testing, and status documents.
-- Formatting, linting, typechecking, and test commands.
+- Pinned Oxfmt, type-aware/type-checking Oxc, tsdown, declaration, artifact, test, and Knip gates.
 - Approved package-scoped portable dependencies for validation, Result composition, transforms,
   date arithmetic, exhaustive state matching, typed SQLite mappings, and modular geometry.
-- Root property-testing and static package-audit tools with publication tools held behind their
-  artifact and release-decision gates.
+- Root property-testing and static package-audit tools with Publint and Are the Types Wrong running
+  against each built artifact; publishing remains behind a separate release decision.
 
 ## Acceptance
 
-- All source packages resolve through the root TypeScript path map.
-- A single check command formats-checks, lints, typechecks, and runs unit tests.
+- All source packages resolve through the root TypeScript path map and every consumer export points
+  to generated `dist` JavaScript and declarations.
+- A single check command format-checks, builds, validates artifacts, runs type-aware/type-checking
+  lint, runs unit/property tests, and audits unused code.
 - Package manifests contain no accidental publish or deployment script.
 - Hosted Sync is visibly excluded from the Private Vault runtime.
 - Repository status distinguishes implemented contracts from native proof.

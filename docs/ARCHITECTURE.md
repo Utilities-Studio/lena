@@ -32,11 +32,10 @@ The local vault is authoritative in both Private Vault and future Hosted Sync mo
   +-- @lena/vault
   |     +-- @lena/op-sqlite
   |     +-- @lena/expo-sqlite
-  |
-  +-- @lena/backup
-  |     +-- @lena/manual-backup
-  |     +-- @lena/icloud
-  |     +-- @lena/google-drive
+  |     +-- @lena/backup
+  |           +-- @lena/manual-backup
+  |           +-- @lena/icloud
+  |           +-- @lena/google-drive
   |
   +-- @lena/search
   +-- @lena/ai
@@ -68,15 +67,21 @@ staging -> validate -> select active pointer -> reopen -> verify
 
 The non-sensitive registry stores only the minimum required to locate encrypted vault files. It never contains travel records, journal content, provider tokens, StoreKit identifiers, or encryption keys.
 
+`schemaVersion` identifies the consuming application's unified vault schema. A consuming app owns
+one source-code migration registry whose consecutive steps include both its domain changes and the
+required Lena table changes. Lena's built-in registry proves only the current Lena-owned v2 to v3
+fragment; it does not claim to migrate Jetseen or Becoming domain tables. Restore is compatible only
+when the supplied registry produces a complete executable chain to the host's target version.
+
 `vault_id` identifies one logical user vault. `vault_instance_id` identifies one physical active,
 staging, migrated, or restored copy. The registry selects an exact physical instance, so staging
 and rollback never alias the currently active file.
 
 A persisted selected pointer is only a reopen hint. It does not grant runtime authority after a
 process restart. Validation, activation, retirement, backup coverage, remote verification, and
-destructive cleanup use module-local opaque evidence that cannot survive JSON, object spread, or
-another physical copy of the package. A consuming application must load one physical copy of each
-authority-owning Lena module and must revalidate persisted claims at the real native boundary.
+destructive cleanup recheck the canonical ledger and the real runtime resource inside the service
+and transaction that acts. TypeScript object identity is not a substitute for persisted state or
+native verification.
 
 ## Mutation and recovery obligation
 
@@ -84,9 +89,9 @@ A native database implementation must commit a meaningful application mutation a
 
 This is the precise meaning of automatic backup: durable obligation, local recovery generation at the next safe checkpoint, and persistent retry at future runtime opportunities. It does not claim background execution while the operating system suspends the app.
 
-An obligation may be satisfied only by opaque coverage evidence bound to the exact logical vault,
-physical instance, mutation, obligation, backup attempt, verified generation, and covered commit
-time. Persisted coverage claims must be verified again after restart before they regain authority.
+An obligation may be satisfied only inside the backup completion transaction after it finds a
+verified-generation watermark covering the exact logical vault, physical instance, mutation,
+commit sequence, and commit time. A caller-supplied coverage DTO cannot complete an obligation.
 
 ## Backup generation
 
@@ -112,10 +117,10 @@ Upload completion and backup verification are different facts. Remote verificati
 the exact provider, provider object identifier, generation, logical vault, byte length, checksum,
 and active upload claim. Provider indexes are acceleration data and never the only recovery record.
 
-Persisted verification records are claims, not capabilities. Runtime verification evidence is
-minted only after hashing the exact local or remote ciphertext at its adapter boundary. Retention,
-manual export, restore activation, conflict reconciliation, and deletion reject parsed, copied,
-forged, stale, cross-provider, and cross-generation evidence.
+Persisted verification records are claims, not capabilities. The acting adapter hashes the exact
+local or remote ciphertext, checks the durable generation ledger and current claim, and performs
+any authorized state change in its owned transaction. Retention, manual export, restore activation,
+conflict reconciliation, and deletion cannot be authorized by a parsed plan alone.
 
 ## Restore
 
@@ -155,22 +160,21 @@ and discard events from an older attempt are rejected.
 
 ## StoreKit
 
-StoreKit integration accepts only bridge-created, verified exact-product facts and adapter-issued
-runtime-opaque events from an allowlisted catalog. Snapshot completeness, live updates, unavailable
-states, sequence advancement, and reduced catalog state cannot be reconstructed through public
-objects, JSON, or object spread. Adapter sequence establishes a monotonic causal order.
-Subscription facts carry a validated expiration and are evaluated as of a supplied time; lifetime
-and subscription facts affect only their own products. StoreKit produces paid-feature authority and
-nothing else. No StoreKit package imports a destructive vault operation. Explicit Restore
-Purchases is a payment action, never data restore.
+The closed `expo-iap` service queries only allowlisted products, requests current StoreKit 2
+entitlement, checks local transaction verification, then evaluates paid access. Strict facts,
+snapshots, unavailable events, sequence values, and cached reducer state are portable data; none can
+bypass a fresh StoreKit check. Subscription facts carry a validated expiration and are evaluated as
+of a supplied time; lifetime and subscription facts affect only their own products. StoreKit
+produces paid-feature authority and nothing else. No StoreKit package imports a destructive vault
+operation. Explicit Restore Purchases is a payment action, never data restore.
 
 ## GPS
 
 The native collection boundary receives coordinates and resolves them locally against an audited country dataset. Only a country observation without latitude or longitude crosses into the persistable reducer. A transition creates a review proposal; the application decides whether it becomes canonical.
 
-Coordinate samples, boundary datasets, resolutions, and persistable observations are runtime
-opaque values. Resolution is bound to the exact sample and dataset used, and serialized or
-structurally forged observations cannot enter transition reduction.
+The country resolver builds one Flatbush index for each validated dataset, then applies Turf only
+to candidate polygons. A resolution is transiently bound to the exact sample and dataset used.
+Persistable observations are strict coordinate-free data; they never contain latitude or longitude.
 
 ## Hosted Sync
 
