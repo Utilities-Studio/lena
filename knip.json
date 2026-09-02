@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/knip/schema.json",
   "bun": true,
-  "ignoreDependencies": ["@arethetypeswrong/cli", "@changesets/cli", "publint"],
+  "ignoreDependencies": ["@changesets/cli", "lefthook"],
   "workspaces": {
     "packages/*": {
       "entry": ["src/index.ts", "test/**/*.test.ts"],

@@ -1,11 +1,10 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2023", "DOM"],
+    "lib": ["ES2022"],
     "module": "ESNext",
     "moduleDetection": "force",
     "moduleResolution": "Bundler",
@@ -16,26 +15,28 @@
     "noPropertyAccessFromIndexSignature": true,
     "noUncheckedIndexedAccess": true,
     "paths": {
-      "@lena/ai": ["./packages/ai/src/index.ts"],
-      "@lena/backup": ["./packages/backup/src/index.ts"],
-      "@lena/core": ["./packages/core/src/index.ts"],
-      "@lena/expo-sqlite": ["./packages/expo-sqlite/src/index.ts"],
-      "@lena/google-drive": ["./packages/google-drive/src/index.ts"],
-      "@lena/gps": ["./packages/gps/src/index.ts"],
-      "@lena/icloud": ["./packages/icloud/src/index.ts"],
-      "@lena/manual-backup": ["./packages/manual-backup/src/index.ts"],
-      "@lena/op-sqlite": ["./packages/op-sqlite/src/index.ts"],
-      "@lena/search": ["./packages/search/src/index.ts"],
-      "@lena/storekit": ["./packages/storekit/src/index.ts"],
-      "@lena/sync": ["./packages/sync/src/index.ts"],
-      "@lena/vault": ["./packages/vault/src/index.ts"]
+      "@lena/ai": ["./packages/ai/src/index"],
+      "@lena/backup": ["./packages/backup/src/index"],
+      "@lena/core": ["./packages/core/src/index"],
+      "@lena/expo-sqlite": ["./packages/expo-sqlite/src/index"],
+      "@lena/google-drive": ["./packages/google-drive/src/index"],
+      "@lena/gps": ["./packages/gps/src/index"],
+      "@lena/icloud": ["./packages/icloud/src/index"],
+      "@lena/manual-backup": ["./packages/manual-backup/src/index"],
+      "@lena/op-sqlite": ["./packages/op-sqlite/src/index"],
+      "@lena/search": ["./packages/search/src/index"],
+      "@lena/storekit": ["./packages/storekit/src/index"],
+      "@lena/sync": ["./packages/sync/src/index"],
+      "@lena/vault": ["./packages/vault/src/index"]
     },
     "resolveJsonModule": true,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "strict": true,
-    "target": "ES2023",
+    "target": "ES2022",
+    "types": ["bun"],
     "useDefineForClassFields": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["packages/*/src/**/*.ts"]
+  "exclude": ["packages/*/dist"],
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "tsdown.config.ts"]
 }

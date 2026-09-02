@@ -7,20 +7,27 @@
   ],
   "type": "module",
   "scripts": {
+    "audit": "knip",
+    "build": "tsdown --workspace",
+    "check": "bun run format:check && bun run build && bun run lint && bun run test && bun run audit",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint --deny-warnings -D correctness -D suspicious -D perf packages",
-    "lint:type-aware": "oxlint --type-aware --type-check --deny-warnings -D correctness -D suspicious -D perf packages",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test packages",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test"
+    "lint": "oxlint --type-aware --type-check packages tsdown.config.ts",
+    "test": "bun test packages"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "0.18.5",
+    "@arethetypeswrong/core": "0.18.5",
     "@changesets/cli": "3.0.1",
+    "@types/bun": "1.4.0",
     "fast-check": "4.9.0",
     "knip": "6.34.0",
-    "publint": "0.3.24"
+    "lefthook": "2.1.12",
+    "oxfmt": "0.66.0",
+    "oxlint": "1.81.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "publint": "0.3.24",
+    "tsdown": "0.22.14",
+    "typescript": "7.0.2"
   },
   "packageManager": "bun@1.4.0"
 }

@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "deny",
+    "perf": "deny",
+    "suspicious": "deny"
+  },
+  "ignorePatterns": ["packages/*/dist/**"],
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "deny",
+    "typeAware": true,
+    "typeCheck": true
+  },
+  "overrides": [
+    {
+      "files": ["packages/*/test/**/*.ts"],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off",
+        "unicorn/no-array-reverse": "off",
+        "unicorn/no-array-sort": "off"
+      }
+    },
+    {
+      "files": ["packages/vault/src/migrations.ts"],
+      "rules": {
+        "eslint/no-await-in-loop": "off",
+        "unicorn/no-array-sort": "off"
+      }
+    }
+  ]
+}

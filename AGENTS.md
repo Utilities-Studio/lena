@@ -1,6 +1,6 @@
-<h1 style="color:#ff0000;font-size:96px;font-weight:900;letter-spacing:0.04em;text-transform:uppercase;margin:0">ABSOLUTE PROHIBITION</h1>
+ABSOLUTE PROHIBITION
 
-<p style="color:#ff0000;font-size:42px;font-weight:900;margin:0.25em 0 0.75em">NO DEPLOY. NO DATABASE. NO MIGRATION. NO CLOUDFLARE. NEVER.</p>
+NO DEPLOY. NO DATABASE. NO MIGRATION. NO CLOUDFLARE. NEVER.
 
 **PERMANENT. DO NOT DELETE, WEAKEN, MOVE BELOW OTHER RULES, OR REVERT THIS BLOCK** when updating this file or any generated agent instruction.
 
@@ -40,7 +40,8 @@ Read before material work:
 - Never hand-edit generated files.
 - Preserve user-owned changes.
 - Use Bun for this repository unless an existing package requires otherwise.
-- Use `oxfmt`, type-aware `oxlint`, and `lefthook` when their exact dependency/tooling setup is approved. Do not introduce Prettier, ESLint, or Husky.
+- Use the pinned `oxfmt`, type-aware and type-checking `oxlint`, `tsdown`, and `lefthook`
+  configuration. Do not introduce Prettier, ESLint, Husky, or a second build path.
 
 ## Code rules
 
@@ -97,8 +98,9 @@ not own. Never keep parallel old and new implementations.
   predicates.
 - **Drizzle owns typed SQLite schema mappings and ordinary adapter queries.** Keep one canonical
   `drizzle-orm` schema in `@lena/vault` so both SQLite adapters consume identical table and index
-  definitions. Derive Zod row/insert/update contracts from that mapping. Adapter packages use
-  Drizzle for ordinary queries only when their native runtimes exist.
+  definitions. Derive Zod row/insert/update contracts from that mapping with `drizzle-zod`; never
+  duplicate table-owned row shapes by hand. Adapter packages use Drizzle for ordinary queries only
+  when their native runtimes exist.
   Direct SQL remains appropriate for SQLCipher key-before-inspection, PRAGMAs, FTS5, `sqlite-vec`,
   integrity checks, exact recovery transactions, and constraints or migration behavior Drizzle
   cannot represent safely. Agents never run Drizzle, database, or migration commands.
@@ -106,12 +108,22 @@ not own. Never keep parallel old and new implementations.
   `@turf/turf` umbrella. Lena still owns input limits, antimeridian normalization, overlap priority,
   runtime opacity, privacy minimization, and review-first transition policy. Coordinates never cross
   into persistent types.
+- **RFC 8785 canonical JSON owns signed and hashed JSON bytes.** Use `canonicalize` for backup
+  manifests and future JSON whose exact bytes are hashed or authenticated. Ordinary
+  `JSON.stringify` remains appropriate when byte identity is not part of the contract.
+- **Flatbush owns static GPS spatial indexing.** Build one index per validated boundary dataset,
+  use modular Turf only on returned candidates, and keep antimeridian duplication and overlap
+  priority as Lena policy.
+- **compare-versions owns model-version ordering.** Use its validation and comparison APIs for
+  runtime and model compatibility. Do not hand-roll semantic-version splitting or ordering.
 
 ### Native, application, and development boundaries
 
 - Expo Crypto owns secure randomness and Expo persistent UUID creation. SecureStore owns only small
-  device-bound secrets. FileSystem owns staged/file operations. Native modules belong in explicit
-  adapter packages or as host-compatible peer dependencies, never in `@lena/core`.
+  device-bound secrets. FileSystem owns staged/file operations. `expo-iap` is the StoreKit 2 bridge;
+  `react-native-cloud-storage` is the iCloud and Google Drive file bridge. Native modules belong in
+  explicit adapter packages as host-compatible peer dependencies, never in `@lena/core`. Source
+  integration does not imply native configuration, signed-device proof, or runtime readiness.
 - React Hook Form plus `@hookform/resolvers/zod` owns consuming-application form state. TanStack
   Query owns consuming-application remote async UI state only. Neither belongs in Lena portable
   packages or becomes storage, backup, payment, or sync authority.
@@ -119,12 +131,19 @@ not own. Never keep parallel old and new implementations.
   ordering, time, GPS geometry, FTS input, retention, and restore safety. Keep explicit adversarial
   regression tests as well.
 - Knip audits unused dependencies, files, and exports. Publint and Are the Types Wrong validate only
-  built, packed publishable artifacts. Changesets is release metadata tooling only. None of these
-  tools deploys, publishes, runs Git, mutates a database, or becomes an automatic check until its
-  exact configuration and workflow receive separate approval.
+  `tsdown`-built package artifacts. Changesets is release metadata tooling only. None of these tools
+  deploys, publishes, runs Git, or mutates a database. Every package export points to `dist`; source
+  entry points are never the consumer contract.
 - `usehooks-ts` is prohibited because Lena targets React Native and portable non-browser packages.
 - Every package declares only the dependencies it imports. Never place every approved dependency in
   `@lena/core`, and never make a consuming application install an unrelated native peer.
+- WeakSet or WeakMap membership never stands in for durable authorization, database state, native
+  verification, or a persisted recovery fact. Durable authority is checked inside the operation
+  that acts, against the canonical ledger and runtime resource. WeakMap remains appropriate only
+  for a genuine ephemeral object binding or non-authorizing cache, such as binding a GPS resolution
+  to the exact transient sample that produced it.
+- Tests never return early when setup or an expected state is missing. Unwrap expected Results,
+  parse the expected schema, or throw an assertion failure so a broken setup cannot pass vacuously.
 
 ## Evidence
 
