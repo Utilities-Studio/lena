@@ -1,11 +1,11 @@
 {
-  "$schema": "./node_modules/knip/schema.json",
-  "bun": true,
-  "ignoreDependencies": ["@changesets/cli", "lefthook"],
-  "workspaces": {
-    "packages/*": {
-      "entry": ["src/index.ts", "test/**/*.test.ts"],
-      "project": ["src/**/*.ts", "test/**/*.ts"]
-    }
-  }
+	"$schema": "./node_modules/knip/schema.json",
+	"bun": true,
+	"ignoreDependencies": ["lefthook"],
+	"workspaces": {
+		"packages/*": {
+			"entry": ["src/index.ts", "test/**/*.test.ts"],
+			"project": ["src/**/*.ts", "test/**/*.ts"]
+		}
+	}
 }

@@ -1,13 +1,13 @@
 import {
 	transportCiphertextUriSchema,
 	transportRemotePathSchema
-} from '@lena/backup'
+} from '@lena-inc/backup'
 import {
 	errAsync,
 	isoTimestampSchema,
 	LenaError,
 	ResultAsync
-} from '@lena/core'
+} from '@lena-inc/core'
 import {
 	CloudStorage,
 	CloudStorageProvider,

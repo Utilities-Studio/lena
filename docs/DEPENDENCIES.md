@@ -32,7 +32,7 @@ compatibility check, and owner approval before installation.
 | `@turf/distance`                 | `7.4.0`          | Ephemeral sample distance only.                                                                                                                                                               |
 | `@turf/helpers`                  | `7.4.0`          | GeoJSON primitive construction only.                                                                                                                                                          |
 | `@turf/bbox`                     | `7.4.0`          | Bounds for validated country polygons without handwritten or spread-based extrema scans.                                                                                                      |
-| `flatbush`                       | `4.5.0`          | Static per-dataset spatial index that limits Turf checks to candidate country polygons.                                                                                                       |
+| `flatbush`                       | `4.6.2`          | Static per-dataset spatial index that limits Turf checks to candidate country polygons.                                                                                                       |
 | `compare-versions`               | `6.1.1`          | Validated model/runtime semantic-version comparison.                                                                                                                                          |
 
 Each package declares only the subset it imports. No umbrella `@turf/turf`, Lodash, Remeda,
@@ -53,7 +53,7 @@ handwritten Result union, or duplicate schema-owned interface is approved.
 | `lefthook`               | `2.1.12`         | Local hook runner. Installation was script-disabled; hook installation remains an owner-run Git mutation.                               |
 | `publint`                | `0.3.24`         | Run only after Lena has a built, packed publishable artifact.                                                                           |
 | `@arethetypeswrong/core` | `0.18.5`         | Used by tsdown against each built package artifact.                                                                                     |
-| `@changesets/cli`        | `3.0.1`          | Installed, but configuration waits for publication, versioning, registry, and package-access decisions.                                 |
+| `@changesets/cli`        | `3.0.1`          | Canonical version and publish engine for the owner-run bootstrap and later tokenless GitHub OIDC releases.                              |
 
 These tools do not run Git, publish, deploy, configure infrastructure, or change a database.
 
@@ -70,7 +70,7 @@ before timezone APIs.
 ## Batch A: Local encrypted database
 
 `drizzle-orm@0.45.2` and `zod@4.5.4` are already approved for one portable canonical mapping in
-`@lena/vault`, consumed by both SQLite adapter packages. `drizzle-kit@0.31.10` is installed as an
+`@lena-inc/vault`, consumed by both SQLite adapter packages. `drizzle-kit@0.31.10` is installed as an
 approved development generator. Each consuming application owns one generated history containing
 its domain schema and imported Lena tables. Lena does not own a parallel registry, planner, or SQL
 statement executor. No host Drizzle config, migration history, or generated artifact exists yet.

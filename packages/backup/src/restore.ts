@@ -12,7 +12,7 @@ import {
 	type Result,
 	type SchemaVersion,
 	type VaultInstanceId
-} from '@lena/core'
+} from '@lena-inc/core'
 import { match } from 'ts-pattern'
 import { z } from 'zod'
 import { sha256ChecksumSchema } from './checksum'

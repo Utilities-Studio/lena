@@ -1,4 +1,4 @@
-# Plan 07: `@lena/search`
+# Plan 07: `@lena-inc/search`
 
 ## Outcome
 

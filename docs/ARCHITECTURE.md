@@ -27,24 +27,24 @@ The local vault is authoritative in both Private Vault and future Hosted Sync mo
 ## Package graph
 
 ```text
-@lena/core
+@lena-inc/core
   |
-  +-- @lena/vault
-  |     +-- @lena/op-sqlite
-  |     +-- @lena/expo-sqlite
-  |     +-- @lena/backup
-  |           +-- @lena/manual-backup
-  |           +-- @lena/icloud
-  |           +-- @lena/google-drive
+  +-- @lena-inc/vault
+  |     +-- @lena-inc/op-sqlite
+  |     +-- @lena-inc/expo-sqlite
+  |     +-- @lena-inc/backup
+  |           +-- @lena-inc/manual-backup
+  |           +-- @lena-inc/icloud
+  |           +-- @lena-inc/google-drive
   |
-  +-- @lena/search
-  +-- @lena/ai
-  +-- @lena/storekit
-  +-- @lena/gps
-  +-- @lena/sync       design-only
+  +-- @lena-inc/search
+  +-- @lena-inc/ai
+  +-- @lena-inc/storekit
+  +-- @lena-inc/gps
+  +-- @lena-inc/sync       design-only
 ```
 
-`@lena/core` contains domain-neutral primitives only. Packages may depend downward in this graph. Application code depends on public packages; Lena never imports application code.
+`@lena-inc/core` contains domain-neutral primitives only. Packages may depend downward in this graph. Application code depends on public packages; Lena never imports application code.
 
 ## Canonical versus derived data
 
@@ -187,7 +187,7 @@ Persistable observations are strict coordinate-free data; they never contain lat
 
 ## Hosted Sync
 
-`@lena/sync` exposes design contracts and a disabled capability in the Private Vault milestone. It does not ship a backend, network client, database table migration, or silent upload path. Runtime implementation requires a separate owner decision.
+`@lena-inc/sync` exposes design contracts and a disabled capability in the Private Vault milestone. It does not ship a backend, network client, database table migration, or silent upload path. Runtime implementation requires a separate owner decision.
 Consent requests maintain a monotonic high-water mark and reject older replacement requests or a
 reused request identifier with different content. These contracts do not weaken the hard-disabled
 runtime capability.

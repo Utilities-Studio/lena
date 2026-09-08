@@ -1,4 +1,4 @@
-# Plan 05: `@lena/manual-backup`
+# Plan 05: `@lena-inc/manual-backup`
 
 ## Outcome
 

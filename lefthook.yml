@@ -4,10 +4,10 @@ pre-commit:
   parallel: true
   jobs:
     - name: format
-      glob: "**/*.{json,jsonc,md,ts,yaml,yml}"
+      glob: '**/*.{json,jsonc,md,ts,yaml,yml}'
       run: bun run oxfmt --check {staged_files}
     - name: lint
-      glob: "**/*.{js,jsx,ts,tsx}"
+      glob: '**/*.{js,jsx,ts,tsx}'
       run: bun run oxlint {staged_files}
 
 pre-push:

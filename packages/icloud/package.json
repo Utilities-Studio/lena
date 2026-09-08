@@ -1,33 +1,43 @@
 {
-  "name": "@lena/icloud",
-  "version": "0.0.0",
-  "private": true,
-  "files": [
-    "dist"
-  ],
-  "type": "module",
-  "sideEffects": false,
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "react-native": "./dist/index.js",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
-  },
-  "dependencies": {
-    "@lena/backup": "workspace:*",
-    "@lena/core": "workspace:*",
-    "ts-pattern": "5.9.0",
-    "zod": "4.5.4"
-  },
-  "devDependencies": {
-    "react-native-cloud-storage": "3.1.0"
-  },
-  "peerDependencies": {
-    "react-native-cloud-storage": "3.1.0"
-  }
+	"name": "@lena-inc/icloud",
+	"version": "0.1.0",
+	"description": "iCloud AppData transport contracts and read runtime for Lena backups.",
+	"license": "UNLICENSED",
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/utilities-studio/lena.git",
+		"directory": "packages/icloud"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"react-native": "./dist/index.js",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"dependencies": {
+		"@lena-inc/backup": "0.1.0",
+		"@lena-inc/core": "0.1.0",
+		"ts-pattern": "5.9.0",
+		"zod": "4.5.4"
+	},
+	"devDependencies": {
+		"react-native-cloud-storage": "3.1.0"
+	},
+	"peerDependencies": {
+		"react-native-cloud-storage": "3.1.0"
+	}
 }

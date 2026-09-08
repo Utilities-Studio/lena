@@ -1,236 +1,269 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'bun:test'
 import {
-  err,
-  LenaError,
-  ok,
-  parseEffectId,
-  parseIsoTimestamp,
-  parseMutationId,
-  parseVaultId,
-  parseVaultInstanceId,
-} from "@lena/core";
+	err,
+	LenaError,
+	ok,
+	parseEffectId,
+	parseIsoTimestamp,
+	parseMutationId,
+	parseVaultId,
+	parseVaultInstanceId
+} from '@lena-inc/core'
 import {
-  classifyProcessedEffect,
-  commitSyncVaultMutation,
-  createProcessedEffectRecord,
-  createVaultMutationReceipt,
-  parseProcessedEffectRecord,
-  parseVaultMutationReceipt,
-  prepareAtomicVaultMutation,
-  type SyncVaultDatabase,
-} from "../../src/index";
+	classifyProcessedEffect,
+	commitSyncVaultMutation,
+	createProcessedEffectRecord,
+	createVaultMutationReceipt,
+	parseProcessedEffectRecord,
+	parseVaultMutationReceipt,
+	prepareAtomicVaultMutation,
+	type SyncVaultDatabase
+} from '../../src/index'
 
-const VAULT_ID_TEXT = "018f3f5a-1d2c-4abc-8def-0123456789ab";
-const INSTANCE_ID_TEXT = "018f3f5a-1d2c-4abc-8def-1123456789ab";
-const OTHER_INSTANCE_ID_TEXT = "018f3f5a-1d2c-4abc-8def-2123456789ab";
-const MUTATION_ID_TEXT = "018f3f5a-1d2c-4abc-8def-3123456789ab";
-const EFFECT_ID_TEXT = "018f3f5a-1d2c-4abc-8def-4123456789ab";
-const CREATED_AT_TEXT = "2026-09-01T08:00:00.000Z";
-const COMMITTED_AT_TEXT = "2026-09-01T08:00:01.000Z";
+const VAULT_ID_TEXT = '018f3f5a-1d2c-4abc-8def-0123456789ab'
+const INSTANCE_ID_TEXT = '018f3f5a-1d2c-4abc-8def-1123456789ab'
+const OTHER_INSTANCE_ID_TEXT = '018f3f5a-1d2c-4abc-8def-2123456789ab'
+const MUTATION_ID_TEXT = '018f3f5a-1d2c-4abc-8def-3123456789ab'
+const EFFECT_ID_TEXT = '018f3f5a-1d2c-4abc-8def-4123456789ab'
+const CREATED_AT_TEXT = '2026-09-01T08:00:00.000Z'
+const COMMITTED_AT_TEXT = '2026-09-01T08:00:01.000Z'
 
 function mutationFixtures() {
-  const vaultId = parseVaultId(VAULT_ID_TEXT);
-  const vaultInstanceId = parseVaultInstanceId(INSTANCE_ID_TEXT);
-  const otherVaultInstanceId = parseVaultInstanceId(OTHER_INSTANCE_ID_TEXT);
-  const mutationId = parseMutationId(MUTATION_ID_TEXT);
-  const effectId = parseEffectId(EFFECT_ID_TEXT);
-  const createdAt = parseIsoTimestamp(CREATED_AT_TEXT);
-  const committedAt = parseIsoTimestamp(COMMITTED_AT_TEXT);
-  if (
-    vaultId.isErr() ||
-    vaultInstanceId.isErr() ||
-    otherVaultInstanceId.isErr() ||
-    mutationId.isErr() ||
-    effectId.isErr() ||
-    createdAt.isErr() ||
-    committedAt.isErr()
-  ) {
-    throw new Error("Invalid mutation test fixture");
-  }
-  return {
-    commitSequence: 1,
-    committedAt: committedAt.value,
-    createdAt: createdAt.value,
-    effectId: effectId.value,
-    mutationId: mutationId.value,
-    otherVaultInstanceId: otherVaultInstanceId.value,
-    vaultId: vaultId.value,
-    vaultInstanceId: vaultInstanceId.value,
-  };
+	const vaultId = parseVaultId(VAULT_ID_TEXT)
+	const vaultInstanceId = parseVaultInstanceId(INSTANCE_ID_TEXT)
+	const otherVaultInstanceId = parseVaultInstanceId(OTHER_INSTANCE_ID_TEXT)
+	const mutationId = parseMutationId(MUTATION_ID_TEXT)
+	const effectId = parseEffectId(EFFECT_ID_TEXT)
+	const createdAt = parseIsoTimestamp(CREATED_AT_TEXT)
+	const committedAt = parseIsoTimestamp(COMMITTED_AT_TEXT)
+	if (
+		vaultId.isErr() ||
+		vaultInstanceId.isErr() ||
+		otherVaultInstanceId.isErr() ||
+		mutationId.isErr() ||
+		effectId.isErr() ||
+		createdAt.isErr() ||
+		committedAt.isErr()
+	) {
+		throw new Error('Invalid mutation test fixture')
+	}
+	return {
+		commitSequence: 1,
+		committedAt: committedAt.value,
+		createdAt: createdAt.value,
+		effectId: effectId.value,
+		mutationId: mutationId.value,
+		otherVaultInstanceId: otherVaultInstanceId.value,
+		vaultId: vaultId.value,
+		vaultInstanceId: vaultInstanceId.value
+	}
 }
 
-describe("atomic mutation and obligation contract", () => {
-  test("commits the domain mutation and pending outbox row on one exclusive transaction", () => {
-    const fixture = mutationFixtures();
-    const inserted: unknown[] = [];
-    let transactionBehavior: unknown;
-    let mutationTransaction: unknown;
-    const database = {
-      transaction: (callback: (transaction: unknown) => unknown, config: unknown) => {
-        transactionBehavior = config;
-        const transaction = {
-          insert: () => ({
-            values: (value: unknown) => ({ run: () => void inserted.push(value) }),
-          }),
-          select: () => ({ from: () => ({ get: () => ({ commitSequence: 4 }) }) }),
-        };
-        return callback(transaction);
-      },
-    } as unknown as SyncVaultDatabase;
+describe('atomic mutation and obligation contract', () => {
+	test('commits the domain mutation and pending outbox row on one exclusive transaction', () => {
+		const fixture = mutationFixtures()
+		const inserted: unknown[] = []
+		let transactionBehavior: unknown
+		let mutationTransaction: unknown
+		const database = {
+			transaction: (
+				callback: (transaction: unknown) => unknown,
+				config: unknown
+			) => {
+				transactionBehavior = config
+				const transaction = {
+					insert: () => ({
+						values: (value: unknown) => ({
+							run: () => void inserted.push(value)
+						})
+					}),
+					select: () => ({
+						from: () => ({ get: () => ({ commitSequence: 4 }) })
+					})
+				}
+				return callback(transaction)
+			}
+		} as unknown as SyncVaultDatabase
 
-    const committed = commitSyncVaultMutation(database, fixture, (transaction) => {
-      mutationTransaction = transaction;
-      return ok({ recordId: "local-record-1" });
-    });
-    expect(committed.isOk()).toBe(true);
-    if (committed.isErr()) throw committed.error;
-    expect(transactionBehavior).toEqual({ behavior: "exclusive" });
-    expect(mutationTransaction).toBeDefined();
-    expect(committed.value).toMatchObject({
-      mutationResult: { recordId: "local-record-1" },
-      receipt: { commitSequence: 5, mutationId: fixture.mutationId },
-    });
-    expect(inserted).toEqual([
-      {
-        attemptCount: 0,
-        committedAt: fixture.committedAt,
-        commitSequence: 5,
-        createdAt: fixture.createdAt,
-        mutationId: fixture.mutationId,
-        state: "pending",
-        vaultId: fixture.vaultId,
-        vaultInstanceId: fixture.vaultInstanceId,
-      },
-    ]);
-  });
+		const committed = commitSyncVaultMutation(
+			database,
+			fixture,
+			(transaction) => {
+				mutationTransaction = transaction
+				return ok({ recordId: 'local-record-1' })
+			}
+		)
+		expect(committed.isOk()).toBe(true)
+		if (committed.isErr()) throw committed.error
+		expect(transactionBehavior).toEqual({ behavior: 'exclusive' })
+		expect(mutationTransaction).toBeDefined()
+		expect(committed.value).toMatchObject({
+			mutationResult: { recordId: 'local-record-1' },
+			receipt: { commitSequence: 5, mutationId: fixture.mutationId }
+		})
+		expect(inserted).toEqual([
+			{
+				attemptCount: 0,
+				committedAt: fixture.committedAt,
+				commitSequence: 5,
+				createdAt: fixture.createdAt,
+				mutationId: fixture.mutationId,
+				state: 'pending',
+				vaultId: fixture.vaultId,
+				vaultInstanceId: fixture.vaultInstanceId
+			}
+		])
+	})
 
-  test("does not append an outbox row when the domain mutation fails", () => {
-    const fixture = mutationFixtures();
-    let insertCount = 0;
-    const database = {
-      transaction: (callback: (transaction: unknown) => unknown) =>
-        callback({
-          insert: () => ({
-            values: () => ({
-              run: () => {
-                insertCount += 1;
-              },
-            }),
-          }),
-          select: () => ({ from: () => ({ get: () => ({ commitSequence: 0 }) }) }),
-        }),
-    } as unknown as SyncVaultDatabase;
+	test('does not append an outbox row when the domain mutation fails', () => {
+		const fixture = mutationFixtures()
+		let insertCount = 0
+		const database = {
+			transaction: (callback: (transaction: unknown) => unknown) =>
+				callback({
+					insert: () => ({
+						values: () => ({
+							run: () => {
+								insertCount += 1
+							}
+						})
+					}),
+					select: () => ({
+						from: () => ({ get: () => ({ commitSequence: 0 }) })
+					})
+				})
+		} as unknown as SyncVaultDatabase
 
-    const rejected = commitSyncVaultMutation(database, fixture, () =>
-      err(new LenaError("conflict")),
-    );
-    expect(rejected.isErr()).toBe(true);
-    expect(insertCount).toBe(0);
-  });
+		const rejected = commitSyncVaultMutation(database, fixture, () =>
+			err(new LenaError('conflict'))
+		)
+		expect(rejected.isErr()).toBe(true)
+		expect(insertCount).toBe(0)
+	})
 
-  test("binds a domain mutation, pending obligation, and receipt to one instance", () => {
-    const fixture = mutationFixtures();
-    const mutation = Object.freeze({ kind: "insert-entry", recordId: "local-record-1" });
-    const plan = prepareAtomicVaultMutation({ ...fixture, mutation });
+	test('binds a domain mutation, pending obligation, and receipt to one instance', () => {
+		const fixture = mutationFixtures()
+		const mutation = Object.freeze({
+			kind: 'insert-entry',
+			recordId: 'local-record-1'
+		})
+		const plan = prepareAtomicVaultMutation({ ...fixture, mutation })
 
-    expect(plan.mutation).toBe(mutation);
-    expect(plan.backupObligation).toMatchObject({
-      attemptCount: 0,
-      mutationId: fixture.mutationId,
-      state: "pending",
-      vaultId: fixture.vaultId,
-      vaultInstanceId: fixture.vaultInstanceId,
-    });
+		expect(plan.mutation).toBe(mutation)
+		expect(plan.backupObligation).toMatchObject({
+			attemptCount: 0,
+			mutationId: fixture.mutationId,
+			state: 'pending',
+			vaultId: fixture.vaultId,
+			vaultInstanceId: fixture.vaultInstanceId
+		})
 
-    const receipt = createVaultMutationReceipt(plan, fixture.committedAt);
-    expect(receipt.isOk()).toBe(true);
-    if (receipt.isErr()) throw receipt.error;
-    expect(parseVaultMutationReceipt(JSON.parse(JSON.stringify(receipt.value)))).toEqual(receipt);
-  });
+		const receipt = createVaultMutationReceipt(plan, fixture.committedAt)
+		expect(receipt.isOk()).toBe(true)
+		if (receipt.isErr()) throw receipt.error
+		expect(
+			parseVaultMutationReceipt(JSON.parse(JSON.stringify(receipt.value)))
+		).toEqual(receipt)
+	})
 
-  test("rejects false obligation claims, unknown fields, and backwards commit time", () => {
-    const fixture = mutationFixtures();
-    const plan = prepareAtomicVaultMutation({ ...fixture, mutation: { kind: "update" } });
-    expect(createVaultMutationReceipt(plan, fixture.createdAt).isOk()).toBe(true);
+	test('rejects false obligation claims, unknown fields, and backwards commit time', () => {
+		const fixture = mutationFixtures()
+		const plan = prepareAtomicVaultMutation({
+			...fixture,
+			mutation: { kind: 'update' }
+		})
+		expect(createVaultMutationReceipt(plan, fixture.createdAt).isOk()).toBe(
+			true
+		)
 
-    expect(
-      parseVaultMutationReceipt({
-        backupObligationCreated: false,
-        commitSequence: fixture.commitSequence,
-        committedAt: fixture.committedAt,
-        mutationId: fixture.mutationId,
-        vaultId: fixture.vaultId,
-        vaultInstanceId: fixture.vaultInstanceId,
-      }).isOk(),
-    ).toBe(false);
-    expect(
-      parseVaultMutationReceipt({
-        backupObligationCreated: true,
-        commitSequence: fixture.commitSequence,
-        committedAt: fixture.committedAt,
-        mutationId: fixture.mutationId,
-        providerIdentity: "forbidden",
-        vaultId: fixture.vaultId,
-        vaultInstanceId: fixture.vaultInstanceId,
-      }).isOk(),
-    ).toBe(false);
-  });
-});
+		expect(
+			parseVaultMutationReceipt({
+				backupObligationCreated: false,
+				commitSequence: fixture.commitSequence,
+				committedAt: fixture.committedAt,
+				mutationId: fixture.mutationId,
+				vaultId: fixture.vaultId,
+				vaultInstanceId: fixture.vaultInstanceId
+			}).isOk()
+		).toBe(false)
+		expect(
+			parseVaultMutationReceipt({
+				backupObligationCreated: true,
+				commitSequence: fixture.commitSequence,
+				committedAt: fixture.committedAt,
+				mutationId: fixture.mutationId,
+				providerIdentity: 'forbidden',
+				vaultId: fixture.vaultId,
+				vaultInstanceId: fixture.vaultInstanceId
+			}).isOk()
+		).toBe(false)
+	})
+})
 
-describe("processed effect idempotency", () => {
-  test("distinguishes an unprocessed effect from an exact replay", () => {
-    const fixture = mutationFixtures();
-    const untrustedInput = {
-      effectId: fixture.effectId,
-      effectKind: "backup-obligation" as const,
-      mutationId: fixture.mutationId,
-      providerToken: "must-not-be-projected",
-      processedAt: fixture.committedAt,
-      vaultId: fixture.vaultId,
-      vaultInstanceId: fixture.vaultInstanceId,
-    };
-    const record = createProcessedEffectRecord(untrustedInput);
-    expect(record).not.toHaveProperty("providerToken");
-    const expected = {
-      effectId: fixture.effectId,
-      effectKind: "backup-obligation" as const,
-      mutationId: fixture.mutationId,
-      vaultId: fixture.vaultId,
-      vaultInstanceId: fixture.vaultInstanceId,
-    };
+describe('processed effect idempotency', () => {
+	test('distinguishes an unprocessed effect from an exact replay', () => {
+		const fixture = mutationFixtures()
+		const untrustedInput = {
+			effectId: fixture.effectId,
+			effectKind: 'backup-obligation' as const,
+			mutationId: fixture.mutationId,
+			providerToken: 'must-not-be-projected',
+			processedAt: fixture.committedAt,
+			vaultId: fixture.vaultId,
+			vaultInstanceId: fixture.vaultInstanceId
+		}
+		const record = createProcessedEffectRecord(untrustedInput)
+		expect(record).not.toHaveProperty('providerToken')
+		const expected = {
+			effectId: fixture.effectId,
+			effectKind: 'backup-obligation' as const,
+			mutationId: fixture.mutationId,
+			vaultId: fixture.vaultId,
+			vaultInstanceId: fixture.vaultInstanceId
+		}
 
-    expect(classifyProcessedEffect(null, expected)).toEqual(ok({ status: "unprocessed" }));
-    expect(classifyProcessedEffect(record, expected)).toEqual(
-      ok({ record, status: "already-processed" }),
-    );
-    expect(parseProcessedEffectRecord(JSON.parse(JSON.stringify(record)))).toEqual(ok(record));
-  });
+		expect(classifyProcessedEffect(null, expected)).toEqual(
+			ok({ status: 'unprocessed' })
+		)
+		expect(classifyProcessedEffect(record, expected)).toEqual(
+			ok({ record, status: 'already-processed' })
+		)
+		expect(
+			parseProcessedEffectRecord(JSON.parse(JSON.stringify(record)))
+		).toEqual(ok(record))
+	})
 
-  test("fails closed when an effect id is replayed for another instance", () => {
-    const fixture = mutationFixtures();
-    const record = createProcessedEffectRecord({
-      effectId: fixture.effectId,
-      effectKind: "backup-obligation",
-      mutationId: fixture.mutationId,
-      processedAt: fixture.committedAt,
-      vaultId: fixture.vaultId,
-      vaultInstanceId: fixture.vaultInstanceId,
-    });
+	test('fails closed when an effect id is replayed for another instance', () => {
+		const fixture = mutationFixtures()
+		const record = createProcessedEffectRecord({
+			effectId: fixture.effectId,
+			effectKind: 'backup-obligation',
+			mutationId: fixture.mutationId,
+			processedAt: fixture.committedAt,
+			vaultId: fixture.vaultId,
+			vaultInstanceId: fixture.vaultInstanceId
+		})
 
-    expect(
-      classifyProcessedEffect(record, {
-        effectId: fixture.effectId,
-        effectKind: "backup-obligation",
-        mutationId: fixture.mutationId,
-        vaultId: fixture.vaultId,
-        vaultInstanceId: fixture.otherVaultInstanceId,
-      }).isOk(),
-    ).toBe(false);
-    expect(parseProcessedEffectRecord({ ...record, effectKind: "provider-upload" }).isOk()).toBe(
-      false,
-    );
-    expect(parseProcessedEffectRecord({ ...record, providerToken: "forbidden" }).isOk()).toBe(
-      false,
-    );
-  });
-});
+		expect(
+			classifyProcessedEffect(record, {
+				effectId: fixture.effectId,
+				effectKind: 'backup-obligation',
+				mutationId: fixture.mutationId,
+				vaultId: fixture.vaultId,
+				vaultInstanceId: fixture.otherVaultInstanceId
+			}).isOk()
+		).toBe(false)
+		expect(
+			parseProcessedEffectRecord({
+				...record,
+				effectKind: 'provider-upload'
+			}).isOk()
+		).toBe(false)
+		expect(
+			parseProcessedEffectRecord({
+				...record,
+				providerToken: 'forbidden'
+			}).isOk()
+		).toBe(false)
+	})
+})

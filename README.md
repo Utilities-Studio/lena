@@ -80,34 +80,35 @@ Lena is modular. An application installs only the packages it needs.
 Lena uses its own package scope:
 
 ```text
-@lena/core
-@lena/vault
-@lena/op-sqlite
-@lena/expo-sqlite
-@lena/backup
-@lena/icloud
-@lena/google-drive
-@lena/manual-backup
-@lena/search
-@lena/ai
-@lena/storekit
-@lena/gps
-@lena/sync
+@lena-inc/core
+@lena-inc/vault
+@lena-inc/op-sqlite
+@lena-inc/expo-sqlite
+@lena-inc/backup
+@lena-inc/icloud
+@lena-inc/google-drive
+@lena-inc/manual-backup
+@lena-inc/search
+@lena-inc/ai
+@lena-inc/storekit
+@lena-inc/gps
+@lena-inc/sync
 ```
 
-`@lena/*` communicates that Lena is a reusable platform with its own identity. `@utilities-studio/lena-*` would make the package family look like an internal application utility.
+`@lena-inc/*` communicates that Lena is a reusable platform with its own identity. The source
+repository remains owned by Utilities Studio at <https://github.com/utilities-studio/lena>.
 
-The `@lena` registry scope must be reserved before public packages are published. During local development, applications consume the packages from this sibling workspace.
+The `@lena-inc` registry scope must be reserved before public packages are published. During local development, applications consume the packages from this sibling workspace.
 
 ## Package responsibilities
 
-### `@lena/core`
+### `@lena-inc/core`
 
 Domain-neutral identifiers, data contracts, errors, compatibility rules, and invariants shared by all Lena packages.
 
 It contains no React components, database engine, cloud provider, payment SDK, or application schema.
 
-### `@lena/vault`
+### `@lena-inc/vault`
 
 Vault lifecycle, schema-version classification, transactional mutation obligations, integrity checks, and active-vault selection.
 
@@ -119,7 +120,7 @@ as current, older, or future. A future schema is rejected. An older schema may e
 is not proven compatible until the keyed adapter applies the host migration bundle and target
 metadata plus integrity validation pass without changing the active-vault pointer.
 
-### `@lena/op-sqlite`
+### `@lena-inc/op-sqlite`
 
 The readiness contract for the high-performance React Native target using OP-SQLite and
 SQLCipher. The native implementation remains dependency-gated.
@@ -136,7 +137,7 @@ Target capabilities:
 
 Jetseen targets this implementation after its native-build and recovery gates pass.
 
-### `@lena/expo-sqlite`
+### `@lena-inc/expo-sqlite`
 
 The readiness contract for applications that prioritize Expo-managed SQLite compatibility or
 cannot yet accept another native database dependency. The native implementation remains
@@ -146,7 +147,7 @@ Becoming can target this implementation until its native-library policy is expli
 Both database targets must expose the same Lena data contracts without passing module-owned
 functions through dependency bags.
 
-### `@lena/backup`
+### `@lena-inc/backup`
 
 The provider-independent backup protocol:
 
@@ -165,7 +166,7 @@ Persisted verification records and plans are non-authorizing claims. Export, res
 upload, reconciliation, and deletion must recheck the canonical ledger and the real runtime
 resource inside the operation that acts.
 
-### `@lena/icloud`, `@lena/google-drive`, and `@lena/manual-backup`
+### `@lena-inc/icloud`, `@lena-inc/google-drive`, and `@lena-inc/manual-backup`
 
 Narrow transport protocols for uploading, downloading, listing, inspecting, and deleting exact
 encrypted objects through the approved `react-native-cloud-storage` host peer. Provider plans do
@@ -174,7 +175,7 @@ not authorize I/O; the acting runtime must recheck Lena's ledger and current sta
 They do not own backup policy, encryption keys, retention, or restore selection. Host entitlements,
 provider authentication, interruption behavior, and signed-device operation remain unproven.
 
-### `@lena/search`
+### `@lena-inc/search`
 
 Portable local-search contracts:
 
@@ -187,14 +188,14 @@ Search indexes are derived data. Losing or rebuilding an index never loses a jou
 No executable SQLite search query exists yet. The real keyed adapter will build and run the bounded
 FTS5 and `sqlite-vec` query through Drizzle instead of exposing a standalone SQL string plan.
 
-### `@lena/ai`
+### `@lena-inc/ai`
 
 Optional on-device model contracts such as embeddings, reranking, summarization, and structured
 generation. Model execution remains dependency-gated.
 
 AI is never required to open, search, back up, restore, or export the canonical vault. Cloud inference is not an automatic fallback.
 
-### `@lena/storekit`
+### `@lena-inc/storekit`
 
 Portable contracts plus the narrow `expo-iap` StoreKit 2 boundary for exact-product, locally
 verified current entitlement, isolated from local data ownership. Cached facts and reduced catalog
@@ -206,13 +207,13 @@ loading does not shape the production module boundary.
 
 Payment can control paid features. It cannot select, encrypt, hide, clear, or restore a vault.
 
-### `@lena/gps`
+### `@lena-inc/gps`
 
 Pure location-transition and country-observation primitives.
 
 Raw coordinates remain transient. Applications persist only the minimum derived observation required by their product, and domain applications decide whether a proposed event becomes canonical data.
 
-### `@lena/sync`
+### `@lena-inc/sync`
 
 A future opt-in hosted-sync boundary. It is not part of Private Vault operation and is not required by the initial Lena release.
 
@@ -293,16 +294,16 @@ Every Lena backup implementation must preserve these rules:
 Target package set:
 
 ```text
-@lena/core
-@lena/vault
-@lena/op-sqlite
-@lena/backup
-@lena/icloud
-@lena/google-drive
-@lena/manual-backup
-@lena/search
-@lena/storekit
-@lena/gps
+@lena-inc/core
+@lena-inc/vault
+@lena-inc/op-sqlite
+@lena-inc/backup
+@lena-inc/icloud
+@lena-inc/google-drive
+@lena-inc/manual-backup
+@lena-inc/search
+@lena-inc/storekit
+@lena-inc/gps
 ```
 
 Jetseen continues to own travel rules, country calculations, trips, visas, review proposals, screens, and product behavior.
@@ -312,15 +313,15 @@ Jetseen continues to own travel rules, country calculations, trips, visas, revie
 Initial compatible package set:
 
 ```text
-@lena/core
-@lena/vault
-@lena/expo-sqlite
-@lena/backup
-@lena/icloud
-@lena/google-drive
-@lena/manual-backup
-@lena/search
-@lena/ai
+@lena-inc/core
+@lena-inc/vault
+@lena-inc/expo-sqlite
+@lena-inc/backup
+@lena-inc/icloud
+@lena-inc/google-drive
+@lena-inc/manual-backup
+@lena-inc/search
+@lena-inc/ai
 ```
 
 Becoming continues to own journal entries, prompts, moods, photos, insights, themes, and its editor experience.
@@ -342,23 +343,23 @@ that uses backup and vault declares:
 ```json
 {
 	"dependencies": {
-		"@lena/backup": "file:../lena/packages/backup",
-		"@lena/core": "file:../lena/packages/core",
-		"@lena/vault": "file:../lena/packages/vault"
+		"@lena-inc/backup": "file:../lena/packages/backup",
+		"@lena-inc/core": "file:../lena/packages/core",
+		"@lena-inc/vault": "file:../lena/packages/vault"
 	},
 	"overrides": {
-		"@lena/backup": "file:../lena/packages/backup",
-		"@lena/core": "file:../lena/packages/core",
-		"@lena/vault": "file:../lena/packages/vault"
+		"@lena-inc/backup": "file:../lena/packages/backup",
+		"@lena-inc/core": "file:../lena/packages/core",
+		"@lena-inc/vault": "file:../lena/packages/vault"
 	}
 }
 ```
 
 This exact core, vault, and backup shape installed offline in a clean Bun 1.4.0 consumer. Direct
-`file:` dependencies without overrides fail because Bun cannot resolve a nested `workspace:*`
-package outside Lena. Packed and peer-dependency variants also attempted to fetch the unpublished
-`@lena` scope. The override shape is therefore a pre-publish development workaround, not the final
-distribution contract and not proof of Metro or native integration.
+`file:` dependencies without overrides fail because nested `@lena-inc/*` dependencies are registry
+dependencies once a package leaves this workspace. Until bootstrap publication, the override shape
+is a development workaround, not the final distribution contract and not proof of Metro or native
+integration.
 
 Bun snapshots local file dependencies during install. After rebuilding Lena, an already-installed
 consumer refreshes those artifacts with `bun install --force --ignore-scripts --offline`.
@@ -370,7 +371,10 @@ signed-device behavior before Lena is described as plug-and-play.
 Each consuming repository keeps its own package manager, lockfile, native configuration, and
 release process. Lena never deploys an application.
 
-Public or private registry publishing is a later decision. No package should be described as published until the registry scope, versioning, license, provenance, and release process are explicitly approved.
+Public npm distribution is configured for version `0.1.0`. The owner performs the first publication
+locally, then configures npm trusted publishing for the guarded GitHub workflow. See the
+[publishing guide](./docs/PUBLISHING.md). Configuration is not publication: no package should be
+described as published until npm confirms it.
 
 ## Delivery order
 
@@ -412,7 +416,7 @@ privacy, lifecycle, and failure policy in Lena:
 - es-toolkit owns generic collection and object transforms.
 - date-fns owns portable date and UTC-instant arithmetic.
 - ts-pattern owns exhaustive matching for complex state reducers.
-- Drizzle owns the canonical typed SQLite mapping in `@lena/vault`, host-generated migration
+- Drizzle owns the canonical typed SQLite mapping in `@lena-inc/vault`, host-generated migration
   history, and driver-specific runtime migration execution; `drizzle-zod` derives strict row
   contracts. Each application generates one Lena plus domain history with Drizzle Kit. A future
   adapter calls the official `migrate()` only inside its keyed open or staging service. Direct SQL
@@ -441,15 +445,15 @@ tools. They do not belong in Lena's portable packages. `usehooks-ts` is excluded
 consumers are React Native applications, not browser applications.
 
 Oxfmt, type-aware/type-checking Oxc, tsdown, declaration generation, Publint, Are the Types Wrong,
-tests, and Knip form one pinned local gate. Changesets configuration waits for publication,
-versioning, and registry decisions. None of these tools publishes or deploys.
+tests, and Knip form one pinned local gate. Changesets owns version planning and both manual and OIDC
+npm publication. Agents never execute the publishing path.
 
 ## Status
 
 The portable contract layer is implemented across core, vault,
 backup, manual backup, cloud transport protocols, search, AI, StoreKit, GPS, and the hard-disabled
 Hosted Sync boundary. Its approved library-first foundation is package-scoped rather than bundled
-into core. `@lena/vault` exposes one canonical typed Drizzle mapping; OP-SQLite and Expo SQLite
+into core. `@lena-inc/vault` exposes one canonical typed Drizzle mapping; OP-SQLite and Expo SQLite
 currently expose honest readiness contracts that consume it.
 
 No native OP-SQLite or Expo SQLite driver, SQLCipher runtime, backup-cryptography runtime,
@@ -460,5 +464,5 @@ cloud write/delete execution is not implemented. No host migration history or ge
 artifact exists, and no adapter migration runtime has executed. No Lena package is published,
 installed in an application, runtime-complete, or proven on a signed device.
 
-See [implementation status](./docs/STATUS.md), [ordered plans](./docs/plans/README.md), and
-[dependency approval batches](./docs/DEPENDENCIES.md).
+See [implementation status](./docs/STATUS.md), [publishing](./docs/PUBLISHING.md),
+[ordered plans](./docs/plans/README.md), and [dependency approval batches](./docs/DEPENDENCIES.md).

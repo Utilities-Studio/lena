@@ -1,179 +1,189 @@
 import {
-  err,
-  isoTimestampSchema,
-  LenaError,
-  ok,
-  parseIsoTimestamp,
-  type IsoTimestamp,
-  type Result,
-} from "@lena/core";
+	err,
+	isoTimestampSchema,
+	LenaError,
+	ok,
+	parseIsoTimestamp,
+	type IsoTimestamp,
+	type Result
+} from '@lena-inc/core'
 
 import {
-  isVerifiedStoreKitEntitlementFact,
-  parseStoreKitSequence,
-  storeKitSequenceSchema,
-  storeKitFactFingerprint,
-  type StoreKitSequence,
-  type VerifiedStoreKitEntitlementFact,
-} from "./facts";
+	isVerifiedStoreKitEntitlementFact,
+	parseStoreKitSequence,
+	storeKitSequenceSchema,
+	storeKitFactFingerprint,
+	type StoreKitSequence,
+	type VerifiedStoreKitEntitlementFact
+} from './facts'
 import {
-  storeKitProductIdSchema,
-  type StoreKitProductId,
-  type StoreKitProductPolicy,
-  type StoreKitProductType,
-} from "./policy";
-import { isAfter, parseISO } from "date-fns";
-import { orderBy, uniqBy } from "es-toolkit";
-import { match } from "ts-pattern";
-import { z } from "zod";
+	storeKitProductIdSchema,
+	type StoreKitProductId,
+	type StoreKitProductPolicy,
+	type StoreKitProductType
+} from './policy'
+import { isAfter, parseISO } from 'date-fns'
+import { orderBy, uniqBy } from 'es-toolkit'
+import { match } from 'ts-pattern'
+import { z } from 'zod'
 
 export interface StoreKitStartupEntitlementCache {
-  readonly productId: StoreKitProductId;
-  readonly verifiedAt: IsoTimestamp;
-  readonly wasEntitled: boolean;
+	readonly productId: StoreKitProductId
+	readonly verifiedAt: IsoTimestamp
+	readonly wasEntitled: boolean
 }
 
 /** @deprecated Cached reducer projection only. Use StoreKitRuntimeObservation for access gating. */
 export type StoreKitEntitlementAuthority =
-  | Readonly<{ kind: "unknown" }>
-  | Readonly<{
-      evaluatedAt: IsoTimestamp;
-      expiresAt: IsoTimestamp | null;
-      kind: "entitled";
-      productId: StoreKitProductId;
-      productType: StoreKitProductType;
-      verifiedAt: IsoTimestamp;
-    }>
-  | Readonly<{
-      evaluatedAt: IsoTimestamp;
-      kind: "not_entitled";
-      reason: "expired" | "no_current_entitlement" | "refunded" | "revoked";
-      verifiedAt: IsoTimestamp;
-    }>
-  | Readonly<{
-      observedAt: IsoTimestamp;
-      reason: "offline" | "store_unavailable";
-      kind: "unavailable";
-    }>;
+	| Readonly<{ kind: 'unknown' }>
+	| Readonly<{
+			evaluatedAt: IsoTimestamp
+			expiresAt: IsoTimestamp | null
+			kind: 'entitled'
+			productId: StoreKitProductId
+			productType: StoreKitProductType
+			verifiedAt: IsoTimestamp
+	  }>
+	| Readonly<{
+			evaluatedAt: IsoTimestamp
+			kind: 'not_entitled'
+			reason: 'expired' | 'no_current_entitlement' | 'refunded' | 'revoked'
+			verifiedAt: IsoTimestamp
+	  }>
+	| Readonly<{
+			observedAt: IsoTimestamp
+			reason: 'offline' | 'store_unavailable'
+			kind: 'unavailable'
+	  }>
 
-export const storeKitSnapshotSourceSchema = z.enum(["account_change", "launch", "restore"]);
-export type StoreKitSnapshotSource = z.infer<typeof storeKitSnapshotSourceSchema>;
+export const storeKitSnapshotSourceSchema = z.enum([
+	'account_change',
+	'launch',
+	'restore'
+])
+export type StoreKitSnapshotSource = z.infer<
+	typeof storeKitSnapshotSourceSchema
+>
 
 const runtimeStoreKitEntitlementEventBrand: unique symbol = Symbol(
-  "RuntimeStoreKitEntitlementEvent",
-);
-const runtimeStoreKitEntitlementEvents = new WeakSet();
+	'RuntimeStoreKitEntitlementEvent'
+)
+const runtimeStoreKitEntitlementEvents = new WeakSet()
 
 interface RuntimeStoreKitEntitlementEvent {
-  readonly [runtimeStoreKitEntitlementEventBrand]: true;
+	readonly [runtimeStoreKitEntitlementEventBrand]: true
 }
 
 export type StoreKitEntitlementSnapshotEvent = Readonly<{
-  facts: readonly VerifiedStoreKitEntitlementFact[];
-  observedAt: IsoTimestamp;
-  sequence: StoreKitSequence;
-  source: StoreKitSnapshotSource;
-  type: "snapshot";
+	facts: readonly VerifiedStoreKitEntitlementFact[]
+	observedAt: IsoTimestamp
+	sequence: StoreKitSequence
+	source: StoreKitSnapshotSource
+	type: 'snapshot'
 }> &
-  RuntimeStoreKitEntitlementEvent;
+	RuntimeStoreKitEntitlementEvent
 
 export type StoreKitEntitlementTransactionEvent = Readonly<{
-  fact: VerifiedStoreKitEntitlementFact;
-  type: "transaction";
+	fact: VerifiedStoreKitEntitlementFact
+	type: 'transaction'
 }> &
-  RuntimeStoreKitEntitlementEvent;
+	RuntimeStoreKitEntitlementEvent
 
 export type StoreKitUnavailableEvent = Readonly<{
-  observedAt: IsoTimestamp;
-  reason: "offline" | "store_unavailable";
-  sequence: StoreKitSequence;
-  type: "unavailable";
+	observedAt: IsoTimestamp
+	reason: 'offline' | 'store_unavailable'
+	sequence: StoreKitSequence
+	type: 'unavailable'
 }> &
-  RuntimeStoreKitEntitlementEvent;
+	RuntimeStoreKitEntitlementEvent
 
 export type StoreKitEntitlementEvent =
-  | StoreKitEntitlementSnapshotEvent
-  | StoreKitEntitlementTransactionEvent
-  | StoreKitUnavailableEvent;
+	| StoreKitEntitlementSnapshotEvent
+	| StoreKitEntitlementTransactionEvent
+	| StoreKitUnavailableEvent
 
 const startupCacheSchema = z.strictObject({
-  productId: storeKitProductIdSchema,
-  verifiedAt: isoTimestampSchema,
-  wasEntitled: z.boolean(),
-});
+	productId: storeKitProductIdSchema,
+	verifiedAt: isoTimestampSchema,
+	wasEntitled: z.boolean()
+})
 const nativeSnapshotShapeSchema = z.strictObject({
-  facts: z.array(z.unknown()),
-  observedAt: isoTimestampSchema,
-  sequence: storeKitSequenceSchema,
-  source: storeKitSnapshotSourceSchema,
-});
+	facts: z.array(z.unknown()),
+	observedAt: isoTimestampSchema,
+	sequence: storeKitSequenceSchema,
+	source: storeKitSnapshotSourceSchema
+})
 const nativeUnavailableEventShapeSchema = z.strictObject({
-  observedAt: isoTimestampSchema,
-  reason: z.enum(["offline", "store_unavailable"]),
-  sequence: storeKitSequenceSchema,
-});
+	observedAt: isoTimestampSchema,
+	reason: z.enum(['offline', 'store_unavailable']),
+	sequence: storeKitSequenceSchema
+})
 
 function issueRuntimeStoreKitEntitlementEvent<T extends object>(
-  event: T,
+	event: T
 ): T & RuntimeStoreKitEntitlementEvent {
-  const runtimeEvent: T & RuntimeStoreKitEntitlementEvent = Object.assign({}, event, {
-    [runtimeStoreKitEntitlementEventBrand]: true as const,
-  });
-  Object.defineProperty(runtimeEvent, runtimeStoreKitEntitlementEventBrand, {
-    configurable: false,
-    enumerable: false,
-    value: true,
-    writable: false,
-  });
-  const issuedEvent = Object.freeze(runtimeEvent);
-  runtimeStoreKitEntitlementEvents.add(issuedEvent);
-  return issuedEvent;
+	const runtimeEvent: T & RuntimeStoreKitEntitlementEvent = Object.assign(
+		{},
+		event,
+		{
+			[runtimeStoreKitEntitlementEventBrand]: true as const
+		}
+	)
+	Object.defineProperty(runtimeEvent, runtimeStoreKitEntitlementEventBrand, {
+		configurable: false,
+		enumerable: false,
+		value: true,
+		writable: false
+	})
+	const issuedEvent = Object.freeze(runtimeEvent)
+	runtimeStoreKitEntitlementEvents.add(issuedEvent)
+	return issuedEvent
 }
 
 export function isRuntimeStoreKitEntitlementEvent(
-  input: unknown,
+	input: unknown
 ): input is StoreKitEntitlementEvent {
-  return (
-    typeof input === "object" &&
-    input !== null &&
-    runtimeStoreKitEntitlementEvents.has(input) &&
-    (input as { readonly [runtimeStoreKitEntitlementEventBrand]?: unknown })[
-      runtimeStoreKitEntitlementEventBrand
-    ] === true
-  );
+	return (
+		typeof input === 'object' &&
+		input !== null &&
+		runtimeStoreKitEntitlementEvents.has(input) &&
+		(input as { readonly [runtimeStoreKitEntitlementEventBrand]?: unknown })[
+			runtimeStoreKitEntitlementEventBrand
+		] === true
+	)
 }
 
 export function parseStoreKitStartupEntitlementCache(
-  input: unknown,
-  policy: StoreKitProductPolicy,
+	input: unknown,
+	policy: StoreKitProductPolicy
 ): Result<StoreKitStartupEntitlementCache, LenaError> {
-  const record = startupCacheSchema.safeParse(input);
-  if (!record.success) {
-    return err(
-      new LenaError("invalid_input", {
-        boundary: "storekit_startup_cache",
-      }),
-    );
-  }
+	const record = startupCacheSchema.safeParse(input)
+	if (!record.success) {
+		return err(
+			new LenaError('invalid_input', {
+				boundary: 'storekit_startup_cache'
+			})
+		)
+	}
 
-  if (record.data.productId !== policy.productId) {
-    return err(
-      new LenaError("invalid_input", {
-        boundary: "storekit_startup_cache",
-      }),
-    );
-  }
-  const verifiedAt = parseIsoTimestamp(record.data.verifiedAt);
-  if (verifiedAt.isErr()) {
-    return err(verifiedAt.error);
-  }
-  return ok(
-    Object.freeze({
-      productId: policy.productId,
-      verifiedAt: verifiedAt.value,
-      wasEntitled: record.data.wasEntitled,
-    }),
-  );
+	if (record.data.productId !== policy.productId) {
+		return err(
+			new LenaError('invalid_input', {
+				boundary: 'storekit_startup_cache'
+			})
+		)
+	}
+	const verifiedAt = parseIsoTimestamp(record.data.verifiedAt)
+	if (verifiedAt.isErr()) {
+		return err(verifiedAt.error)
+	}
+	return ok(
+		Object.freeze({
+			productId: policy.productId,
+			verifiedAt: verifiedAt.value,
+			wasEntitled: record.data.wasEntitled
+		})
+	)
 }
 
 /**
@@ -183,16 +193,18 @@ export function parseStoreKitStartupEntitlementCache(
  * code must never turn cached or caller-supplied facts into live authority.
  */
 export function createStoreKitTransactionEventFromNativeAdapter(
-  fact: unknown,
+	fact: unknown
 ): Result<StoreKitEntitlementTransactionEvent, LenaError> {
-  if (!isVerifiedStoreKitEntitlementFact(fact)) {
-    return err(
-      new LenaError("authentication_required", {
-        boundary: "storekit_transaction_event",
-      }),
-    );
-  }
-  return ok(issueRuntimeStoreKitEntitlementEvent({ fact, type: "transaction" as const }));
+	if (!isVerifiedStoreKitEntitlementFact(fact)) {
+		return err(
+			new LenaError('authentication_required', {
+				boundary: 'storekit_transaction_event'
+			})
+		)
+	}
+	return ok(
+		issueRuntimeStoreKitEntitlementEvent({ fact, type: 'transaction' as const })
+	)
 }
 
 /**
@@ -203,74 +215,74 @@ export function createStoreKitTransactionEventFromNativeAdapter(
  * older live events and is therefore authorizing evidence.
  */
 export function createStoreKitEntitlementSnapshotFromNativeAdapter(
-  input: unknown,
+	input: unknown
 ): Result<StoreKitEntitlementSnapshotEvent, LenaError> {
-  const record = nativeSnapshotShapeSchema.safeParse(input);
-  if (!record.success) {
-    return err(
-      new LenaError("invalid_input", {
-        boundary: "storekit_snapshot",
-      }),
-    );
-  }
+	const record = nativeSnapshotShapeSchema.safeParse(input)
+	if (!record.success) {
+		return err(
+			new LenaError('invalid_input', {
+				boundary: 'storekit_snapshot'
+			})
+		)
+	}
 
-  const sequence = parseStoreKitSequence(record.data.sequence);
-  if (sequence.isErr()) {
-    return err(sequence.error);
-  }
-  const observedAt = parseIsoTimestamp(record.data.observedAt);
-  if (observedAt.isErr()) {
-    return err(observedAt.error);
-  }
-  const facts: VerifiedStoreKitEntitlementFact[] = [];
-  for (const fact of record.data.facts) {
-    if (!isVerifiedStoreKitEntitlementFact(fact)) {
-      return err(
-        new LenaError("authentication_required", {
-          boundary: "storekit_snapshot",
-        }),
-      );
-    }
-    if (fact.sequence >= sequence.value) {
-      return err(
-        new LenaError("invalid_input", {
-          boundary: "storekit_snapshot",
-        }),
-      );
-    }
-    if (isAfter(parseISO(fact.observedAt), parseISO(observedAt.value))) {
-      return err(
-        new LenaError("invalid_input", {
-          boundary: "storekit_snapshot",
-        }),
-      );
-    }
-    facts.push(fact);
-  }
-  if (uniqBy(facts, (fact) => fact.productId).length !== facts.length) {
-    return err(
-      new LenaError("conflict", {
-        boundary: "storekit_snapshot",
-      }),
-    );
-  }
-  if (uniqBy(facts, (fact) => fact.sequence).length !== facts.length) {
-    return err(
-      new LenaError("conflict", {
-        boundary: "storekit_snapshot",
-      }),
-    );
-  }
+	const sequence = parseStoreKitSequence(record.data.sequence)
+	if (sequence.isErr()) {
+		return err(sequence.error)
+	}
+	const observedAt = parseIsoTimestamp(record.data.observedAt)
+	if (observedAt.isErr()) {
+		return err(observedAt.error)
+	}
+	const facts: VerifiedStoreKitEntitlementFact[] = []
+	for (const fact of record.data.facts) {
+		if (!isVerifiedStoreKitEntitlementFact(fact)) {
+			return err(
+				new LenaError('authentication_required', {
+					boundary: 'storekit_snapshot'
+				})
+			)
+		}
+		if (fact.sequence >= sequence.value) {
+			return err(
+				new LenaError('invalid_input', {
+					boundary: 'storekit_snapshot'
+				})
+			)
+		}
+		if (isAfter(parseISO(fact.observedAt), parseISO(observedAt.value))) {
+			return err(
+				new LenaError('invalid_input', {
+					boundary: 'storekit_snapshot'
+				})
+			)
+		}
+		facts.push(fact)
+	}
+	if (uniqBy(facts, (fact) => fact.productId).length !== facts.length) {
+		return err(
+			new LenaError('conflict', {
+				boundary: 'storekit_snapshot'
+			})
+		)
+	}
+	if (uniqBy(facts, (fact) => fact.sequence).length !== facts.length) {
+		return err(
+			new LenaError('conflict', {
+				boundary: 'storekit_snapshot'
+			})
+		)
+	}
 
-  return ok(
-    issueRuntimeStoreKitEntitlementEvent({
-      facts: Object.freeze(facts),
-      observedAt: observedAt.value,
-      sequence: sequence.value,
-      source: record.data.source,
-      type: "snapshot" as const,
-    }),
-  );
+	return ok(
+		issueRuntimeStoreKitEntitlementEvent({
+			facts: Object.freeze(facts),
+			observedAt: observedAt.value,
+			sequence: sequence.value,
+			source: record.data.source,
+			type: 'snapshot' as const
+		})
+	)
 }
 
 /**
@@ -280,79 +292,81 @@ export function createStoreKitEntitlementSnapshotFromNativeAdapter(
  * ordered stream. It is intentionally omitted from the package root.
  */
 export function createStoreKitUnavailableEventFromNativeAdapter(
-  input: unknown,
+	input: unknown
 ): Result<StoreKitUnavailableEvent, LenaError> {
-  const record = nativeUnavailableEventShapeSchema.safeParse(input);
-  if (!record.success) {
-    return err(
-      new LenaError("invalid_input", {
-        boundary: "storekit_unavailable_event",
-      }),
-    );
-  }
+	const record = nativeUnavailableEventShapeSchema.safeParse(input)
+	if (!record.success) {
+		return err(
+			new LenaError('invalid_input', {
+				boundary: 'storekit_unavailable_event'
+			})
+		)
+	}
 
-  const sequence = parseStoreKitSequence(record.data.sequence);
-  if (sequence.isErr()) {
-    return err(sequence.error);
-  }
-  const observedAt = parseIsoTimestamp(record.data.observedAt);
-  if (observedAt.isErr()) {
-    return err(observedAt.error);
-  }
-  return ok(
-    issueRuntimeStoreKitEntitlementEvent({
-      observedAt: observedAt.value,
-      reason: record.data.reason,
-      sequence: sequence.value,
-      type: "unavailable" as const,
-    }),
-  );
+	const sequence = parseStoreKitSequence(record.data.sequence)
+	if (sequence.isErr()) {
+		return err(sequence.error)
+	}
+	const observedAt = parseIsoTimestamp(record.data.observedAt)
+	if (observedAt.isErr()) {
+		return err(observedAt.error)
+	}
+	return ok(
+		issueRuntimeStoreKitEntitlementEvent({
+			observedAt: observedAt.value,
+			reason: record.data.reason,
+			sequence: sequence.value,
+			type: 'unavailable' as const
+		})
+	)
 }
 
 export function parseStoreKitEntitlementEvent(
-  input: unknown,
+	input: unknown
 ): Result<StoreKitEntitlementEvent, LenaError> {
-  if (isRuntimeStoreKitEntitlementEvent(input)) {
-    return ok(input);
-  }
+	if (isRuntimeStoreKitEntitlementEvent(input)) {
+		return ok(input)
+	}
 
-  return err(
-    new LenaError("authentication_required", {
-      boundary: "storekit_entitlement_event",
-    }),
-  );
+	return err(
+		new LenaError('authentication_required', {
+			boundary: 'storekit_entitlement_event'
+		})
+	)
 }
 
 export function storeKitEntitlementEventSequence(
-  event: StoreKitEntitlementEvent,
+	event: StoreKitEntitlementEvent
 ): StoreKitSequence {
-  return match(event)
-    .with({ type: "transaction" }, ({ fact }) => fact.sequence)
-    .with({ type: "snapshot" }, ({ sequence }) => sequence)
-    .with({ type: "unavailable" }, ({ sequence }) => sequence)
-    .exhaustive();
+	return match(event)
+		.with({ type: 'transaction' }, ({ fact }) => fact.sequence)
+		.with({ type: 'snapshot' }, ({ sequence }) => sequence)
+		.with({ type: 'unavailable' }, ({ sequence }) => sequence)
+		.exhaustive()
 }
 
-export function storeKitEntitlementEventFingerprint(event: StoreKitEntitlementEvent): string {
-  return match(event)
-    .with({ type: "transaction" }, ({ fact }) =>
-      JSON.stringify(["transaction-v1", storeKitFactFingerprint(fact)]),
-    )
-    .with({ type: "unavailable" }, ({ observedAt, reason, sequence }) =>
-      JSON.stringify(["unavailable-v1", sequence, observedAt, reason]),
-    )
-    .with({ type: "snapshot" }, ({ facts, observedAt, sequence, source }) =>
-      JSON.stringify([
-        "snapshot-v1",
-        sequence,
-        observedAt,
-        source,
-        orderBy(
-          facts.map((fact) => ({ fingerprint: storeKitFactFingerprint(fact) })),
-          [({ fingerprint }) => fingerprint],
-          ["asc"],
-        ).map(({ fingerprint }) => fingerprint),
-      ]),
-    )
-    .exhaustive();
+export function storeKitEntitlementEventFingerprint(
+	event: StoreKitEntitlementEvent
+): string {
+	return match(event)
+		.with({ type: 'transaction' }, ({ fact }) =>
+			JSON.stringify(['transaction-v1', storeKitFactFingerprint(fact)])
+		)
+		.with({ type: 'unavailable' }, ({ observedAt, reason, sequence }) =>
+			JSON.stringify(['unavailable-v1', sequence, observedAt, reason])
+		)
+		.with({ type: 'snapshot' }, ({ facts, observedAt, sequence, source }) =>
+			JSON.stringify([
+				'snapshot-v1',
+				sequence,
+				observedAt,
+				source,
+				orderBy(
+					facts.map((fact) => ({ fingerprint: storeKitFactFingerprint(fact) })),
+					[({ fingerprint }) => fingerprint],
+					['asc']
+				).map(({ fingerprint }) => fingerprint)
+			])
+		)
+		.exhaustive()
 }

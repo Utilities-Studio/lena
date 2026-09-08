@@ -21,10 +21,10 @@
       },
     },
     "packages/ai": {
-      "name": "@lena/ai",
-      "version": "0.0.0",
+      "name": "@lena-inc/ai",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/core": "workspace:*",
+        "@lena-inc/core": "0.1.0",
         "compare-versions": "6.1.1",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
@@ -32,11 +32,11 @@
       },
     },
     "packages/backup": {
-      "name": "@lena/backup",
-      "version": "0.0.0",
+      "name": "@lena-inc/backup",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/core": "workspace:*",
-        "@lena/vault": "workspace:*",
+        "@lena-inc/core": "0.1.0",
+        "@lena-inc/vault": "0.1.0",
         "canonicalize": "4.0.0",
         "drizzle-orm": "0.45.2",
         "es-toolkit": "1.52.0",
@@ -45,8 +45,8 @@
       },
     },
     "packages/core": {
-      "name": "@lena/core",
-      "version": "0.0.0",
+      "name": "@lena-inc/core",
+      "version": "0.1.0",
       "dependencies": {
         "date-fns": "4.4.0",
         "es-toolkit": "1.52.0",
@@ -55,19 +55,19 @@
       },
     },
     "packages/expo-sqlite": {
-      "name": "@lena/expo-sqlite",
-      "version": "0.0.0",
+      "name": "@lena-inc/expo-sqlite",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/vault": "workspace:*",
+        "@lena-inc/vault": "0.1.0",
         "es-toolkit": "1.52.0",
       },
     },
     "packages/google-drive": {
-      "name": "@lena/google-drive",
-      "version": "0.0.0",
+      "name": "@lena-inc/google-drive",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/backup": "workspace:*",
-        "@lena/core": "workspace:*",
+        "@lena-inc/backup": "0.1.0",
+        "@lena-inc/core": "0.1.0",
         "ts-pattern": "5.9.0",
         "zod": "4.5.4",
       },
@@ -79,10 +79,10 @@
       },
     },
     "packages/gps": {
-      "name": "@lena/gps",
-      "version": "0.0.0",
+      "name": "@lena-inc/gps",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/core": "workspace:*",
+        "@lena-inc/core": "0.1.0",
         "@turf/bbox": "7.4.0",
         "@turf/boolean-point-in-polygon": "7.4.0",
         "@turf/distance": "7.4.0",
@@ -95,11 +95,11 @@
       },
     },
     "packages/icloud": {
-      "name": "@lena/icloud",
-      "version": "0.0.0",
+      "name": "@lena-inc/icloud",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/backup": "workspace:*",
-        "@lena/core": "workspace:*",
+        "@lena-inc/backup": "0.1.0",
+        "@lena-inc/core": "0.1.0",
         "ts-pattern": "5.9.0",
         "zod": "4.5.4",
       },
@@ -111,38 +111,38 @@
       },
     },
     "packages/manual-backup": {
-      "name": "@lena/manual-backup",
-      "version": "0.0.0",
+      "name": "@lena-inc/manual-backup",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/backup": "workspace:*",
-        "@lena/core": "workspace:*",
+        "@lena-inc/backup": "0.1.0",
+        "@lena-inc/core": "0.1.0",
         "ts-pattern": "5.9.0",
         "zod": "4.5.4",
       },
     },
     "packages/op-sqlite": {
-      "name": "@lena/op-sqlite",
-      "version": "0.0.0",
+      "name": "@lena-inc/op-sqlite",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/vault": "workspace:*",
+        "@lena-inc/vault": "0.1.0",
         "es-toolkit": "1.52.0",
       },
     },
     "packages/search": {
-      "name": "@lena/search",
-      "version": "0.0.0",
+      "name": "@lena-inc/search",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/core": "workspace:*",
+        "@lena-inc/core": "0.1.0",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
         "zod": "4.5.4",
       },
     },
     "packages/storekit": {
-      "name": "@lena/storekit",
-      "version": "0.0.0",
+      "name": "@lena-inc/storekit",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/core": "workspace:*",
+        "@lena-inc/core": "0.1.0",
         "date-fns": "4.4.0",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
@@ -156,19 +156,19 @@
       },
     },
     "packages/sync": {
-      "name": "@lena/sync",
-      "version": "0.0.0",
+      "name": "@lena-inc/sync",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/core": "workspace:*",
+        "@lena-inc/core": "0.1.0",
         "ts-pattern": "5.9.0",
         "zod": "4.5.4",
       },
     },
     "packages/vault": {
-      "name": "@lena/vault",
-      "version": "0.0.0",
+      "name": "@lena-inc/vault",
+      "version": "0.1.0",
       "dependencies": {
-        "@lena/core": "workspace:*",
+        "@lena-inc/core": "0.1.0",
         "drizzle-orm": "0.45.2",
         "drizzle-zod": "0.8.3",
         "es-toolkit": "1.52.0",
@@ -494,31 +494,31 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@lena/ai": ["@lena/ai@workspace:packages/ai"],
+    "@lena-inc/ai": ["@lena-inc/ai@workspace:packages/ai"],
 
-    "@lena/backup": ["@lena/backup@workspace:packages/backup"],
+    "@lena-inc/backup": ["@lena-inc/backup@workspace:packages/backup"],
 
-    "@lena/core": ["@lena/core@workspace:packages/core"],
+    "@lena-inc/core": ["@lena-inc/core@workspace:packages/core"],
 
-    "@lena/expo-sqlite": ["@lena/expo-sqlite@workspace:packages/expo-sqlite"],
+    "@lena-inc/expo-sqlite": ["@lena-inc/expo-sqlite@workspace:packages/expo-sqlite"],
 
-    "@lena/google-drive": ["@lena/google-drive@workspace:packages/google-drive"],
+    "@lena-inc/google-drive": ["@lena-inc/google-drive@workspace:packages/google-drive"],
 
-    "@lena/gps": ["@lena/gps@workspace:packages/gps"],
+    "@lena-inc/gps": ["@lena-inc/gps@workspace:packages/gps"],
 
-    "@lena/icloud": ["@lena/icloud@workspace:packages/icloud"],
+    "@lena-inc/icloud": ["@lena-inc/icloud@workspace:packages/icloud"],
 
-    "@lena/manual-backup": ["@lena/manual-backup@workspace:packages/manual-backup"],
+    "@lena-inc/manual-backup": ["@lena-inc/manual-backup@workspace:packages/manual-backup"],
 
-    "@lena/op-sqlite": ["@lena/op-sqlite@workspace:packages/op-sqlite"],
+    "@lena-inc/op-sqlite": ["@lena-inc/op-sqlite@workspace:packages/op-sqlite"],
 
-    "@lena/search": ["@lena/search@workspace:packages/search"],
+    "@lena-inc/search": ["@lena-inc/search@workspace:packages/search"],
 
-    "@lena/storekit": ["@lena/storekit@workspace:packages/storekit"],
+    "@lena-inc/storekit": ["@lena-inc/storekit@workspace:packages/storekit"],
 
-    "@lena/sync": ["@lena/sync@workspace:packages/sync"],
+    "@lena-inc/sync": ["@lena-inc/sync@workspace:packages/sync"],
 
-    "@lena/vault": ["@lena/vault@workspace:packages/vault"],
+    "@lena-inc/vault": ["@lena-inc/vault@workspace:packages/vault"],
 
     "@loaderkit/resolve": ["@loaderkit/resolve@1.0.6", "", { "dependencies": { "@braidai/lang": "^1.0.0" } }, "sha512-G8FdIoF5CypfwmD9rl8BXod5HDn8JqB0CCNBXDTaRZ+yRYhARrrSToX1zg1zy9jX3zLqigsELwhT4gNtkdQAUg=="],
 

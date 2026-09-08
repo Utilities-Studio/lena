@@ -1,4 +1,4 @@
-# Plan 10: `@lena/gps`
+# Plan 10: `@lena-inc/gps`
 
 ## Outcome
 

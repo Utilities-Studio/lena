@@ -1,4 +1,4 @@
-# Plan 02: `@lena/vault`
+# Plan 02: `@lena-inc/vault`
 
 ## Outcome
 

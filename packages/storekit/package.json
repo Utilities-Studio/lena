@@ -1,34 +1,44 @@
 {
-  "name": "@lena/storekit",
-  "version": "0.0.0",
-  "private": true,
-  "files": [
-    "dist"
-  ],
-  "type": "module",
-  "sideEffects": false,
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "react-native": "./dist/index.js",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
-  },
-  "dependencies": {
-    "@lena/core": "workspace:*",
-    "date-fns": "4.4.0",
-    "es-toolkit": "1.52.0",
-    "ts-pattern": "5.9.0",
-    "zod": "4.5.4"
-  },
-  "devDependencies": {
-    "expo-iap": "5.5.0"
-  },
-  "peerDependencies": {
-    "expo-iap": "5.4.1"
-  }
+	"name": "@lena-inc/storekit",
+	"version": "0.1.0",
+	"description": "StoreKit 2 product and entitlement authority for Lena applications.",
+	"license": "UNLICENSED",
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/utilities-studio/lena.git",
+		"directory": "packages/storekit"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"react-native": "./dist/index.js",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"dependencies": {
+		"@lena-inc/core": "0.1.0",
+		"date-fns": "4.4.0",
+		"es-toolkit": "1.52.0",
+		"ts-pattern": "5.9.0",
+		"zod": "4.5.4"
+	},
+	"devDependencies": {
+		"expo-iap": "5.5.0"
+	},
+	"peerDependencies": {
+		"expo-iap": "5.4.1"
+	}
 }

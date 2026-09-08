@@ -1,4 +1,4 @@
-# Plan 09: `@lena/storekit`
+# Plan 09: `@lena-inc/storekit`
 
 ## Outcome
 

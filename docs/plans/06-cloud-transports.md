@@ -1,8 +1,8 @@
-# Plan 06: `@lena/icloud` and `@lena/google-drive`
+# Plan 06: `@lena-inc/icloud` and `@lena-inc/google-drive`
 
 ## Outcome
 
-Narrow transports that store and retrieve exact encrypted backup objects while `@lena/backup` retains all policy authority.
+Narrow transports that store and retrieve exact encrypted backup objects while `@lena-inc/backup` retains all policy authority.
 
 ## Shared transport operations
 

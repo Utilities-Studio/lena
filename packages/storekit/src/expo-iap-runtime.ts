@@ -8,7 +8,7 @@ import {
 	ResultAsync,
 	type IsoTimestamp,
 	type Result
-} from '@lena/core'
+} from '@lena-inc/core'
 import { isBefore, parseISO } from 'date-fns'
 import {
 	ErrorCode,

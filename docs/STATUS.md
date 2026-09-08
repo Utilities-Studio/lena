@@ -1,6 +1,6 @@
 # Lena implementation status
 
-Last verified: 2026-09-02.
+Last verified: 2026-09-08.
 
 ## Status language
 
@@ -16,21 +16,21 @@ Last verified: 2026-09-02.
 
 | Package or slice          | Current status                                                              | Remaining evidence                                                                                                 |
 | ------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Repository foundation     | Local source lint, test, and audit gates pass                               | Provider artifact refresh, aggregate formatting, and publication/versioning workflow                               |
-| `@lena/core`              | Contract complete                                                           | Consuming-application integration                                                                                  |
-| `@lena/vault`             | Portable schema, transaction, and restore-classification contract complete  | Host migration artifacts, closed encrypted SQLite runtime, native pointer lifecycle, interruption and device proof |
-| `@lena/op-sqlite`         | Readiness contract complete                                                 | Approved native driver, SQLCipher runtime, benchmarks, recovery and device proof                                   |
-| `@lena/expo-sqlite`       | Readiness contract complete                                                 | Native adapter, SQLCipher runtime, recovery and device proof                                                       |
-| `@lena/backup`            | Portable protocol and ledger-backed completion complete                     | Crypto/filesystem runtime, provider execution, interruption and fresh-device proof                                 |
-| `@lena/manual-backup`     | Contract complete                                                           | File/document-provider runtime and signed-device proof                                                             |
-| `@lena/icloud`            | Static read-only SDK seam source-integrated                                 | Immutable write/delete runtime, entitlements, account-change recovery and signed-device proof                      |
-| `@lena/google-drive`      | Static read-only SDK seam source-integrated                                 | Immutable resumable write/delete runtime, authentication recovery and signed-device proof                          |
-| `@lena/search`            | Portable FTS grammar, ranking, vector/index, and rebuild contracts complete | Keyed Drizzle FTS5/sqlite-vec executor, real adapter, representative benchmark and device proof                    |
-| `@lena/ai`                | Contract complete                                                           | Runtime selection, model licensing, download execution and device proof                                            |
-| `@lena/storekit`          | Static `expo-iap` service source-integrated                                 | Version alignment, native configuration, sandbox/TestFlight and account-change proof                               |
-| `@lena/gps`               | Portable resolver and indexed geometry contract complete                    | Approved country dataset, native collection and signed-device proof                                                |
-| `@lena/sync`              | Contract complete, hard-disabled                                            | Separate owner-approved Hosted Sync milestone                                                                      |
-| Local package consumption | Prior core, vault and backup artifact import proven with overrides          | Refresh provider artifacts, then consumer typecheck, final distribution, Metro and native peers                    |
+| Repository foundation     | Package identity and release configuration complete; full local gate passes | Owner-run npm bootstrap, license decision, trusted-publisher setup, and first workflow evidence                    |
+| `@lena-inc/core`          | Contract complete                                                           | Consuming-application integration                                                                                  |
+| `@lena-inc/vault`         | Portable schema, transaction, and restore-classification contract complete  | Host migration artifacts, closed encrypted SQLite runtime, native pointer lifecycle, interruption and device proof |
+| `@lena-inc/op-sqlite`     | Readiness contract complete                                                 | Approved native driver, SQLCipher runtime, benchmarks, recovery and device proof                                   |
+| `@lena-inc/expo-sqlite`   | Readiness contract complete                                                 | Native adapter, SQLCipher runtime, recovery and device proof                                                       |
+| `@lena-inc/backup`        | Portable protocol and ledger-backed completion complete                     | Crypto/filesystem runtime, provider execution, interruption and fresh-device proof                                 |
+| `@lena-inc/manual-backup` | Contract complete                                                           | File/document-provider runtime and signed-device proof                                                             |
+| `@lena-inc/icloud`        | Static read-only SDK seam source-integrated                                 | Immutable write/delete runtime, entitlements, account-change recovery and signed-device proof                      |
+| `@lena-inc/google-drive`  | Static read-only SDK seam source-integrated                                 | Immutable resumable write/delete runtime, authentication recovery and signed-device proof                          |
+| `@lena-inc/search`        | Portable FTS grammar, ranking, vector/index, and rebuild contracts complete | Keyed Drizzle FTS5/sqlite-vec executor, real adapter, representative benchmark and device proof                    |
+| `@lena-inc/ai`            | Contract complete                                                           | Runtime selection, model licensing, download execution and device proof                                            |
+| `@lena-inc/storekit`      | Static `expo-iap` service source-integrated                                 | Version alignment, native configuration, sandbox/TestFlight and account-change proof                               |
+| `@lena-inc/gps`           | Portable resolver and indexed geometry contract complete                    | Approved country dataset, native collection and signed-device proof                                                |
+| `@lena-inc/sync`          | Contract complete, hard-disabled                                            | Separate owner-approved Hosted Sync milestone                                                                      |
+| Local package consumption | All 13 packed artifacts install with pre-publish overrides                  | Published-registry install, consumer typecheck, Metro resolution, and native peers                                 |
 | Jetseen Lena adoption     | Not started                                                                 | Package consumption, unified host Drizzle Kit history and app integration                                          |
 | Becoming adoption         | Not started                                                                 | Runtime packages, attachment design and app integration                                                            |
 
@@ -40,21 +40,22 @@ false.
 
 ## Verified local evidence
 
-Current native-boundary and Search correction evidence on 2026-09-02:
+Current package and release evidence on 2026-09-08:
 
-- focused StoreKit, Search, iCloud, and Google Drive tests passed: 79 tests, 0 failed, with 663
-  assertions across 12 files;
-- full type-aware lint passed;
-- full tests passed: 236 tests, 0 failed, with 4,268 assertions across 33 files;
-- Knip completed with no findings;
-- tsdown rebuilt all 13 packages after the StoreKit and Search correction, with Are the Types Wrong
-  plus Publint clean. The later iCloud and Google Drive static-import correction changed those two
-  sources. A second artifact build was prohibited, so their current `dist` files remain stale;
-- every Oxfmt-supported source, test, and documentation file touched by the correction passes a
-  path-scoped format check; and
-- the aggregate `bun run check` is not green because `format:check` still finds 105 untouched files
-  that do not match the current repository format configuration. Those files were not rewritten as
-  part of this bounded slice.
+- `bun run check` passes: all 161 supported files match Oxfmt, tsdown rebuilt all 13 packages,
+  Are the Types Wrong and Publint found no package artifact problems, type-aware/type-checking Oxc
+  passed, all 236 tests passed with 4,268 assertions across 33 files, and Knip completed without a
+  finding;
+- all 13 package manifests and generated artifacts use `@lena-inc/*`, version `0.1.0`, exact
+  internal release versions, public npm access, `UNLICENSED`, and the exact
+  `utilities-studio/lena` repository identity;
+- local `npm pack` produced all 13 publish-shaped tarballs. Every archive contains its package
+  README and built JavaScript/declarations, contains no former package scope or `workspace:*`
+  dependency, and passed strict manifest checks;
+- a clean temporary Bun consumer installed all 13 tarballs with explicit pre-publication overrides,
+  imported the 10 portable packages, and resolved the three native-boundary packages; and
+- Changesets, the protected manual GitHub workflow, and npm trusted-publisher metadata are
+  configured but have not been used to publish.
 
 Focused evidence also includes:
 
@@ -66,7 +67,7 @@ Focused evidence also includes:
 - 40 StoreKit tests, including listener-before-initialization ordering, connection-time event
   capture, failed-initialization cleanup, fail-closed refresh, local verification, finish-once
   behavior, restore, expiration, replay, refund, and revocation;
-- a clean Bun 1.4.0 consumer importing built `@lena/core`, `@lena/vault`, and `@lena/backup`
+- a clean Bun 1.4.0 consumer importing built `@lena-inc/core`, `@lena-inc/vault`, and `@lena-inc/backup`
   artifacts through explicit local file overrides.
 
 Current portable implementation evidence includes:
@@ -92,9 +93,10 @@ migration evidence exists.
 - The installed Drizzle 0.45.2 OP-SQLite transaction implementation does not await its async
   boundary operations. OP-SQLite migration execution remains blocked on an upstream fix plus real
   native ordering and rollback evidence. Expo SQLite source behavior does not prove OP-SQLite.
-- Lena is unpublished. Bun cannot resolve nested `workspace:*` dependencies from sibling `file:`
-  packages by itself. The proven pre-publish workaround requires exact direct dependencies and
-  overrides for every selected/transitive `@lena/*` package.
+- Lena is unpublished. A tarball's exact internal `@lena-inc/*` dependency cannot resolve from npm
+  before bootstrap publication. The proven pre-publish workaround requires direct tarballs and
+  overrides for every selected and transitive Lena package. Registry installation remains unproven
+  until the owner publishes the package family.
 - Provider upload/delete plans still use process-local anti-forgery markers, but every plan states
   `executionAuthorized: false` and no destructive provider executor exists. A future executor must
   recheck the durable ledger and live provider resource inside the operation that acts.
@@ -103,14 +105,15 @@ migration evidence exists.
   reopen verification, rollback, and retirement.
 - Legacy StoreKit fact/catalog reducers remain cached process-local projections. Only the new
   `expo-iap` runtime service may gate paid access.
-- `@lena/storekit` currently declares `expo-iap@5.4.1` as its exact host peer while its development
+- `@lena-inc/storekit` currently declares `expo-iap@5.4.1` as its exact host peer while its development
   and test installation resolves `5.5.0`. The source and artifact gates therefore prove 5.5.0 only.
   Align the exact peer, development dependency, and approved documentation before application
   adoption, then prove the selected version in Jetseen's Expo 55 and React Native 0.83 binary.
 
 ## Explicit non-claims
 
-- No Lena package is published or installed in Jetseen or Becoming.
+- No Lena package is published or installed in Jetseen or Becoming. The GitHub publication workflow
+  and npm trusted-publisher handshake have not run.
 - No native SQLite driver, SQLCipher runtime, backup crypto runtime, filesystem staging runtime,
   generated host migration artifact, adapter migration executor, immutable cloud write/delete
   executor, or local-model executor is implemented.

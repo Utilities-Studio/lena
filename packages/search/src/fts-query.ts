@@ -1,161 +1,169 @@
-import { err, LenaError, ok, type Result } from "@lena/core";
-import { orderBy, uniq } from "es-toolkit";
-import { z } from "zod";
+import { err, LenaError, ok, type Result } from '@lena-inc/core'
+import { orderBy, uniq } from 'es-toolkit'
+import { z } from 'zod'
 
-export const MAX_FTS_CLAUSES = 64;
-export const MAX_FTS_CLAUSE_CODE_POINTS = 2_048;
+export const MAX_FTS_CLAUSES = 64
+export const MAX_FTS_CLAUSE_CODE_POINTS = 2_048
 
-export const ftsClauseKindSchema = z.enum(["phrase", "prefix", "term"]);
-export const ftsQueryModeSchema = z.enum(["all", "any"]);
+export const ftsClauseKindSchema = z.enum(['phrase', 'prefix', 'term'])
+export const ftsQueryModeSchema = z.enum(['all', 'any'])
 export const ftsQueryClauseSchema = z.strictObject({
-  columns: z.array(z.string()).optional(),
-  kind: ftsClauseKindSchema,
-  text: z.string(),
-});
+	columns: z.array(z.string()).optional(),
+	kind: ftsClauseKindSchema,
+	text: z.string()
+})
 export const ftsQueryInputSchema = z.strictObject({
-  clauses: z.array(ftsQueryClauseSchema).min(1),
-  mode: ftsQueryModeSchema,
-});
+	clauses: z.array(ftsQueryClauseSchema).min(1),
+	mode: ftsQueryModeSchema
+})
 
-export type FtsClauseKind = z.infer<typeof ftsClauseKindSchema>;
-export type FtsQueryMode = z.infer<typeof ftsQueryModeSchema>;
-export type FtsQueryClause = Readonly<z.infer<typeof ftsQueryClauseSchema>>;
-export type FtsQueryInput = Readonly<z.infer<typeof ftsQueryInputSchema>>;
+export type FtsClauseKind = z.infer<typeof ftsClauseKindSchema>
+export type FtsQueryMode = z.infer<typeof ftsQueryModeSchema>
+export type FtsQueryClause = Readonly<z.infer<typeof ftsQueryClauseSchema>>
+export type FtsQueryInput = Readonly<z.infer<typeof ftsQueryInputSchema>>
 
 export interface CompiledFtsQuery {
-  readonly clauseCount: number;
-  /** Bind this value as the FTS5 MATCH parameter. Never interpolate it into SQL. */
-  readonly matchParameter: string;
+	readonly clauseCount: number
+	/** Bind this value as the FTS5 MATCH parameter. Never interpolate it into SQL. */
+	readonly matchParameter: string
 }
 
-const COLUMN_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const COLUMN_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 
-export function buildFts5Query(input: FtsQueryInput): Result<CompiledFtsQuery, LenaError> {
-  const parsedInput = ftsQueryInputSchema.safeParse(input);
-  if (!parsedInput.success) {
-    return err(new LenaError("invalid_input"));
-  }
+export function buildFts5Query(
+	input: FtsQueryInput
+): Result<CompiledFtsQuery, LenaError> {
+	const parsedInput = ftsQueryInputSchema.safeParse(input)
+	if (!parsedInput.success) {
+		return err(new LenaError('invalid_input'))
+	}
 
-  if (parsedInput.data.clauses.length > MAX_FTS_CLAUSES) {
-    return err(
-      new LenaError("limit_exceeded", {
-        maximum: MAX_FTS_CLAUSES,
-      }),
-    );
-  }
+	if (parsedInput.data.clauses.length > MAX_FTS_CLAUSES) {
+		return err(
+			new LenaError('limit_exceeded', {
+				maximum: MAX_FTS_CLAUSES
+			})
+		)
+	}
 
-  const compiledClauses: string[] = [];
-  for (const clause of parsedInput.data.clauses) {
-    const compiled = compileClause(clause);
-    if (compiled.isErr()) {
-      return err(compiled.error);
-    }
-    compiledClauses.push(`(${compiled.value})`);
-  }
+	const compiledClauses: string[] = []
+	for (const clause of parsedInput.data.clauses) {
+		const compiled = compileClause(clause)
+		if (compiled.isErr()) {
+			return err(compiled.error)
+		}
+		compiledClauses.push(`(${compiled.value})`)
+	}
 
-  return ok(
-    Object.freeze({
-      clauseCount: compiledClauses.length,
-      matchParameter: compiledClauses.join(parsedInput.data.mode === "all" ? " AND " : " OR "),
-    }),
-  );
+	return ok(
+		Object.freeze({
+			clauseCount: compiledClauses.length,
+			matchParameter: compiledClauses.join(
+				parsedInput.data.mode === 'all' ? ' AND ' : ' OR '
+			)
+		})
+	)
 }
 
 function compileClause(clause: FtsQueryClause): Result<string, LenaError> {
-  if (clause.kind !== "term" && clause.kind !== "phrase" && clause.kind !== "prefix") {
-    return err(new LenaError("invalid_input"));
-  }
+	if (
+		clause.kind !== 'term' &&
+		clause.kind !== 'phrase' &&
+		clause.kind !== 'prefix'
+	) {
+		return err(new LenaError('invalid_input'))
+	}
 
-  const normalizedText = normalizeClauseText(clause.text);
-  if (normalizedText.isErr()) {
-    return err(normalizedText.error);
-  }
+	const normalizedText = normalizeClauseText(clause.text)
+	if (normalizedText.isErr()) {
+		return err(normalizedText.error)
+	}
 
-  if (clause.kind !== "phrase" && /\s/u.test(normalizedText.value)) {
-    return err(new LenaError("invalid_input"));
-  }
+	if (clause.kind !== 'phrase' && /\s/u.test(normalizedText.value)) {
+		return err(new LenaError('invalid_input'))
+	}
 
-  const quotedText = `"${normalizedText.value.replaceAll('"', '""')}"`;
-  const literal = clause.kind === "prefix" ? `${quotedText} *` : quotedText;
-  const columns = normalizeColumns(clause.columns);
-  if (columns.isErr()) {
-    return err(columns.error);
-  }
+	const quotedText = `"${normalizedText.value.replaceAll('"', '""')}"`
+	const literal = clause.kind === 'prefix' ? `${quotedText} *` : quotedText
+	const columns = normalizeColumns(clause.columns)
+	if (columns.isErr()) {
+		return err(columns.error)
+	}
 
-  if (columns.value.length === 0) {
-    return ok(literal);
-  }
+	if (columns.value.length === 0) {
+		return ok(literal)
+	}
 
-  return ok(`{${columns.value.join(" ")}} : ${literal}`);
+	return ok(`{${columns.value.join(' ')}} : ${literal}`)
 }
 
 function normalizeClauseText(value: unknown): Result<string, LenaError> {
-  if (typeof value !== "string") {
-    return err(new LenaError("invalid_input"));
-  }
+	if (typeof value !== 'string') {
+		return err(new LenaError('invalid_input'))
+	}
 
-  if (hasForbiddenFtsControlCharacter(value)) {
-    return err(new LenaError("invalid_input"));
-  }
+	if (hasForbiddenFtsControlCharacter(value)) {
+		return err(new LenaError('invalid_input'))
+	}
 
-  const normalized = value.normalize("NFC").replace(/\s+/gu, " ").trim();
-  if (normalized.length === 0) {
-    return err(new LenaError("invalid_input"));
-  }
+	const normalized = value.normalize('NFC').replace(/\s+/gu, ' ').trim()
+	if (normalized.length === 0) {
+		return err(new LenaError('invalid_input'))
+	}
 
-  if (Array.from(normalized).length > MAX_FTS_CLAUSE_CODE_POINTS) {
-    return err(
-      new LenaError("limit_exceeded", {
-        maximum: MAX_FTS_CLAUSE_CODE_POINTS,
-      }),
-    );
-  }
+	if (Array.from(normalized).length > MAX_FTS_CLAUSE_CODE_POINTS) {
+		return err(
+			new LenaError('limit_exceeded', {
+				maximum: MAX_FTS_CLAUSE_CODE_POINTS
+			})
+		)
+	}
 
-  return ok(normalized);
+	return ok(normalized)
 }
 
 function normalizeColumns(
-  value: readonly string[] | undefined,
+	value: readonly string[] | undefined
 ): Result<readonly string[], LenaError> {
-  if (value === undefined) {
-    return ok(Object.freeze([]));
-  }
+	if (value === undefined) {
+		return ok(Object.freeze([]))
+	}
 
-  if (!Array.isArray(value) || value.length === 0) {
-    return err(new LenaError("invalid_input"));
-  }
+	if (!Array.isArray(value) || value.length === 0) {
+		return err(new LenaError('invalid_input'))
+	}
 
-  const columns: string[] = [];
-  for (const column of value) {
-    if (typeof column !== "string" || !COLUMN_PATTERN.test(column)) {
-      return err(new LenaError("invalid_input"));
-    }
-    columns.push(column);
-  }
+	const columns: string[] = []
+	for (const column of value) {
+		if (typeof column !== 'string' || !COLUMN_PATTERN.test(column)) {
+			return err(new LenaError('invalid_input'))
+		}
+		columns.push(column)
+	}
 
-  return ok(
-    Object.freeze(
-      orderBy(
-        uniq(columns).map((column) => ({ column })),
-        [({ column }) => column],
-        ["asc"],
-      ).map(({ column }) => column),
-    ),
-  );
+	return ok(
+		Object.freeze(
+			orderBy(
+				uniq(columns).map((column) => ({ column })),
+				[({ column }) => column],
+				['asc']
+			).map(({ column }) => column)
+		)
+	)
 }
 
 function hasForbiddenFtsControlCharacter(value: string): boolean {
-  for (const character of value) {
-    const codePoint = character.codePointAt(0);
-    if (
-      codePoint !== undefined &&
-      (codePoint <= 8 ||
-        (codePoint >= 11 && codePoint <= 12) ||
-        (codePoint >= 14 && codePoint <= 31) ||
-        codePoint === 127)
-    ) {
-      return true;
-    }
-  }
-  return false;
+	for (const character of value) {
+		const codePoint = character.codePointAt(0)
+		if (
+			codePoint !== undefined &&
+			(codePoint <= 8 ||
+				(codePoint >= 11 && codePoint <= 12) ||
+				(codePoint >= 14 && codePoint <= 31) ||
+				codePoint === 127)
+		) {
+			return true
+		}
+	}
+	return false
 }

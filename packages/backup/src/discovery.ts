@@ -6,7 +6,7 @@ import {
 	type Result,
 	type SchemaVersion,
 	type VaultId
-} from '@lena/core'
+} from '@lena-inc/core'
 import { orderBy } from 'es-toolkit'
 import type { GenerationManifest } from './manifest'
 import {

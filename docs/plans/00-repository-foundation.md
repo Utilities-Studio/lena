@@ -2,19 +2,22 @@
 
 ## Outcome
 
-A strict Bun and TypeScript monorepo whose packages can be tested independently and consumed from sibling applications without publishing.
+A strict Bun and TypeScript monorepo whose packages can be tested independently, consumed from
+sibling applications before publication, and released through one guarded npm workflow.
 
 ## Deliverables
 
 - Root workspace manifest and strict TypeScript configuration.
-- One package directory per public `@lena/*` module.
+- One package directory per public `@lena-inc/*` module.
 - Named source exports and package export maps.
 - Repository policy, architecture, security, testing, and status documents.
 - Pinned Oxfmt, type-aware/type-checking Oxc, tsdown, declaration, artifact, test, and Knip gates.
 - Approved package-scoped portable dependencies for validation, Result composition, transforms,
   date arithmetic, exhaustive state matching, typed SQLite mappings, and modular geometry.
 - Root property-testing and static package-audit tools with Publint and Are the Types Wrong running
-  against each built artifact; publishing remains behind a separate release decision.
+  against each built artifact.
+- Public package metadata, Changesets versioning, owner-run bootstrap instructions, and a protected
+  tokenless npm trusted-publishing workflow.
 
 ## Acceptance
 
@@ -22,8 +25,9 @@ A strict Bun and TypeScript monorepo whose packages can be tested independently 
   to generated `dist` JavaScript and declarations.
 - A single check command format-checks, builds, validates artifacts, runs type-aware/type-checking
   lint, runs unit/property tests, and audits unused code.
-- Package manifests contain no accidental publish or deployment script.
+- Package manifests contain no package-local publish or deployment script. The private root owns one
+  explicit Changesets publication command.
 - Hosted Sync is visibly excluded from the Private Vault runtime.
 - Repository status distinguishes implemented contracts from native proof.
-- Portable dependencies never imply a native driver, provider bridge, device proof, application
-  adoption, publishing, deployment, or database execution.
+- Portable dependencies and configured publishing never imply a native driver, provider bridge,
+  device proof, application adoption, completed publication, deployment, or database execution.

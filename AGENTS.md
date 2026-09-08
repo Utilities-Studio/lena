@@ -97,7 +97,7 @@ not own. Never keep parallel old and new implementations.
   simple branch exists. Parse external events with Zod first. Keep ordinary conditionals for simple
   predicates.
 - **Drizzle owns typed SQLite mappings, generated migrations, and adapter migration execution.**
-  Keep one canonical `drizzle-orm` schema in `@lena/vault` so both SQLite adapters consume identical
+  Keep one canonical `drizzle-orm` schema in `@lena-inc/vault` so both SQLite adapters consume identical
   table and index definitions. Derive Zod row/insert/update contracts from that mapping with
   `drizzle-zod`; never duplicate table-owned row shapes by hand. The consuming application owns one
   unified Lena plus domain schema and one Drizzle Kit migration history. Never add a handwritten SQL
@@ -128,7 +128,7 @@ not own. Never keep parallel old and new implementations.
 - Expo Crypto owns secure randomness and Expo persistent UUID creation. SecureStore owns only small
   device-bound secrets. FileSystem owns staged/file operations. `expo-iap` is the StoreKit 2 bridge;
   `react-native-cloud-storage` is the iCloud and Google Drive file bridge. Native modules belong in
-  explicit adapter packages as host-compatible peer dependencies, never in `@lena/core`. Source
+  explicit adapter packages as host-compatible peer dependencies, never in `@lena-inc/core`. Source
   integration does not imply native configuration, signed-device proof, or runtime readiness.
 - React Hook Form plus `@hookform/resolvers/zod` owns consuming-application form state. TanStack
   Query owns consuming-application remote async UI state only. Neither belongs in Lena portable
@@ -142,7 +142,7 @@ not own. Never keep parallel old and new implementations.
   entry points are never the consumer contract.
 - `usehooks-ts` is prohibited because Lena targets React Native and portable non-browser packages.
 - Every package declares only the dependencies it imports. Never place every approved dependency in
-  `@lena/core`, and never make a consuming application install an unrelated native peer.
+  `@lena-inc/core`, and never make a consuming application install an unrelated native peer.
 - WeakSet or WeakMap membership never stands in for durable authorization, database state, native
   verification, or a persisted recovery fact. Durable authority is checked inside the operation
   that acts, against the canonical ledger and runtime resource. WeakMap remains appropriate only

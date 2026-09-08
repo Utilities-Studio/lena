@@ -2,7 +2,9 @@
 
 ## D-001: Product and package identity
 
-Decision: use Lena and the `@lena/*` package family. The npm scope must be reserved before publication.
+Decision: use Lena and the public `@lena-inc/*` npm package family. Utilities Studio owns the source
+repository at <https://github.com/utilities-studio/lena>. The npm scope must be reserved before the
+owner performs the first local publication.
 
 ## D-002: Private Vault first
 
@@ -65,7 +67,7 @@ library API.
 ## D-013: Portable, native, and application dependency boundaries
 
 Decision: package each portable dependency only where imported. The canonical Drizzle mapping lives
-in `@lena/vault` so both SQLite adapters consume one schema. The consuming application owns its
+in `@lena-inc/vault` so both SQLite adapters consume one schema. The consuming application owns its
 unified Lena plus domain Drizzle Kit history. The mapping and generated history do not prove a
 native database driver, SQLCipher, backup compatibility, or migration runtime. React Hook Form
 with its Zod resolver, TanStack Query, and `@date-fns/tz` stay in consuming applications.
@@ -73,13 +75,16 @@ with its Zod resolver, TanStack Query, and `@date-fns/tz` stay in consuming appl
 provider, StoreKit, model, and location bridges remain independently approved and
 signed-device-gated.
 
-## D-014: Release tooling does not imply publication readiness
+## D-014: One release engine, two authentication stages
 
 Decision: `tsdown` is the only package build path. Every package exports `dist` artifacts, and each
 build runs Publint and Are the Types Wrong against those artifacts. Knip is configured for workspace
-static analysis. Changesets configuration waits for explicit publication, versioning, registry,
-and access decisions. Installing or running these tools does not authorize Git, publishing,
-deployment, infrastructure, or database work.
+static analysis. Changesets owns versioning, unpublished-version discovery, dependency-ordered
+publication, and already-published detection. The owner performs the first publication locally,
+then npm trusted publishing authenticates the same Changesets command from the protected
+`npm-publish` GitHub environment. Internal Lena dependencies use exact released versions so npm
+packaging cannot leak workspace protocols. This configuration does not authorize agents to run Git,
+publishing, deployment, infrastructure, or database work.
 
 ## D-015: Maintained mechanics added at their narrow owners
 

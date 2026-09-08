@@ -2,7 +2,7 @@
 
 ## Outcome
 
-`@lena/op-sqlite` and `@lena/expo-sqlite` implement the same vault contract over SQLCipher-capable SQLite engines.
+`@lena-inc/op-sqlite` and `@lena-inc/expo-sqlite` implement the same vault contract over SQLCipher-capable SQLite engines.
 
 ## Shared contract
 
@@ -13,7 +13,7 @@
 - Create consistent snapshots without mutating the active database.
 - Run integrity and foreign-key checks.
 - Close deterministically before pointer swaps.
-- Define one typed SQLite mapping with Drizzle in `@lena/vault`; both adapters consume it and derive
+- Define one typed SQLite mapping with Drizzle in `@lena-inc/vault`; both adapters consume it and derive
   strict Zod row and write contracts rather than duplicating database shapes.
 - Consume the application's one generated Lena plus domain Drizzle migration history. Call the
   official adapter-specific `migrate()` only inside the service that has keyed and preliminarily
@@ -26,13 +26,13 @@
   and application invariants before the service reports readiness or permits a staging pointer
   swap.
 
-## `@lena/op-sqlite`
+## `@lena-inc/op-sqlite`
 
 - Target for Jetseen after signed-device benchmark and recovery gates.
 - Proposed external dependency: `@op-engineering/op-sqlite` with SQLCipher enabled.
 - No libSQL/Turso mode in Private Vault because remote coupling and SQLCipher capability conflict with the target.
 
-## `@lena/expo-sqlite`
+## `@lena-inc/expo-sqlite`
 
 - Compatibility target for Becoming and Expo-managed applications.
 - Proposed external dependency: `expo-sqlite` with SQLCipher configuration.

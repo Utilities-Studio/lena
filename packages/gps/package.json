@@ -1,33 +1,43 @@
 {
-  "name": "@lena/gps",
-  "version": "0.0.0",
-  "private": true,
-  "files": [
-    "dist"
-  ],
-  "type": "module",
-  "sideEffects": false,
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "react-native": "./dist/index.js",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
-  },
-  "dependencies": {
-    "@lena/core": "workspace:*",
-    "@turf/bbox": "7.4.0",
-    "@turf/boolean-point-in-polygon": "7.4.0",
-    "@turf/distance": "7.4.0",
-    "@turf/helpers": "7.4.0",
-    "date-fns": "4.4.0",
-    "es-toolkit": "1.52.0",
-    "flatbush": "4.6.2",
-    "ts-pattern": "5.9.0",
-    "zod": "4.5.4"
-  }
+	"name": "@lena-inc/gps",
+	"version": "0.1.0",
+	"description": "Privacy-preserving country resolution and transition contracts for Lena.",
+	"license": "UNLICENSED",
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/utilities-studio/lena.git",
+		"directory": "packages/gps"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"react-native": "./dist/index.js",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"dependencies": {
+		"@lena-inc/core": "0.1.0",
+		"@turf/bbox": "7.4.0",
+		"@turf/boolean-point-in-polygon": "7.4.0",
+		"@turf/distance": "7.4.0",
+		"@turf/helpers": "7.4.0",
+		"date-fns": "4.4.0",
+		"es-toolkit": "1.52.0",
+		"flatbush": "4.6.2",
+		"ts-pattern": "5.9.0",
+		"zod": "4.5.4"
+	}
 }

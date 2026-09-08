@@ -1,4 +1,4 @@
-# Plan 01: `@lena/core`
+# Plan 01: `@lena-inc/core`
 
 ## Outcome
 

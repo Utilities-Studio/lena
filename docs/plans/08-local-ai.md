@@ -1,4 +1,4 @@
-# Plan 08: `@lena/ai`
+# Plan 08: `@lena-inc/ai`
 
 ## Outcome
 

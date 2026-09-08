@@ -8,7 +8,7 @@ import {
 	parseSchemaVersion,
 	parseVaultId,
 	parseVaultInstanceId
-} from '@lena/core'
+} from '@lena-inc/core'
 import {
 	createBackupAttempt,
 	createPersistedLocalVerificationClaim,

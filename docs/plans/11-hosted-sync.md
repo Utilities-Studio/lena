@@ -1,4 +1,4 @@
-# Plan 11: `@lena/sync`
+# Plan 11: `@lena-inc/sync`
 
 ## Outcome
 
@@ -26,7 +26,7 @@ A design-only, opt-in Hosted Sync contract that cannot enter the Private Vault r
 - Consent cannot be inferred from unrelated identities or events.
 - Disabled capability rejects upload planning.
 - Deterministic checkpoint and conflict type validation.
-- Static dependency check proving initial Private Vault packages do not import `@lena/sync`.
+- Static dependency check proving initial Private Vault packages do not import `@lena-inc/sync`.
 - Older replacement requests, replay, forged parsed events, and identifier-content conflicts.
 
 ## Future gate
