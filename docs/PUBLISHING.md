@@ -34,11 +34,6 @@ All packages currently declare `license: UNLICENSED`. They are publicly installa
 publication, but publication does not grant open-source reuse rights. Choose and add an SPDX
 license before bootstrap publication if public reuse is intended.
 
-Do not bootstrap while `@lena-inc/storekit` tests and builds against `expo-iap@5.5.0` but declares
-the exact host peer as `5.4.1`. The owner must approve one exact version, then the development
-dependency, peer dependency, lockfile, dependency record, source gate, and package archive must
-agree.
-
 ## First publication from the owner's machine
 
 Run the repository gate first:

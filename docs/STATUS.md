@@ -27,7 +27,7 @@ Last verified: 2026-09-08.
 | `@lena-inc/google-drive`  | Static read-only SDK seam source-integrated                                 | Immutable resumable write/delete runtime, authentication recovery and signed-device proof                          |
 | `@lena-inc/search`        | Portable FTS grammar, ranking, vector/index, and rebuild contracts complete | Keyed Drizzle FTS5/sqlite-vec executor, real adapter, representative benchmark and device proof                    |
 | `@lena-inc/ai`            | Contract complete                                                           | Runtime selection, model licensing, download execution and device proof                                            |
-| `@lena-inc/storekit`      | Static `expo-iap` service source-integrated                                 | Version alignment, native configuration, sandbox/TestFlight and account-change proof                               |
+| `@lena-inc/storekit`      | Static `expo-iap` service source-integrated                                 | Native configuration, sandbox/TestFlight and account-change proof                                                  |
 | `@lena-inc/gps`           | Portable resolver and indexed geometry contract complete                    | Approved country dataset, native collection and signed-device proof                                                |
 | `@lena-inc/sync`          | Contract complete, hard-disabled                                            | Separate owner-approved Hosted Sync milestone                                                                      |
 | Local package consumption | All 13 packed artifacts install with pre-publish overrides                  | Published-registry install, consumer typecheck, Metro resolution, and native peers                                 |
@@ -46,6 +46,9 @@ Current package and release evidence on 2026-09-08:
   Are the Types Wrong and Publint found no package artifact problems, type-aware/type-checking Oxc
   passed, all 236 tests passed with 4,268 assertions across 33 files, and Knip completed without a
   finding;
+- Bun 1.4.2 `bun outdated --recursive` reports no outdated external dependency. The exact
+  `expo-iap@5.5.1` development dependency, host peer, lockfile resolution, and packed StoreKit
+  manifest agree;
 - all 13 package manifests and generated artifacts use `@lena-inc/*`, version `0.1.0`, exact
   internal release versions, public npm access, `UNLICENSED`, and the exact
   `utilities-studio/lena` repository identity;
@@ -67,8 +70,8 @@ Focused evidence also includes:
 - 40 StoreKit tests, including listener-before-initialization ordering, connection-time event
   capture, failed-initialization cleanup, fail-closed refresh, local verification, finish-once
   behavior, restore, expiration, replay, refund, and revocation;
-- a clean Bun 1.4.0 consumer importing built `@lena-inc/core`, `@lena-inc/vault`, and `@lena-inc/backup`
-  artifacts through explicit local file overrides.
+- a clean Bun 1.4.2 consumer installing all 13 archives through explicit local overrides, importing
+  the 10 portable packages, and resolving the three native-boundary packages.
 
 Current portable implementation evidence includes:
 
@@ -105,10 +108,9 @@ migration evidence exists.
   reopen verification, rollback, and retirement.
 - Legacy StoreKit fact/catalog reducers remain cached process-local projections. Only the new
   `expo-iap` runtime service may gate paid access.
-- `@lena-inc/storekit` currently declares `expo-iap@5.4.1` as its exact host peer while its development
-  and test installation resolves `5.5.0`. The source and artifact gates therefore prove 5.5.0 only.
-  Align the exact peer, development dependency, and approved documentation before application
-  adoption, then prove the selected version in Jetseen's Expo 55 and React Native 0.83 binary.
+- `@lena-inc/storekit` declares `expo-iap@5.5.1` as both its exact host peer and development/test
+  version. Source and artifact checks still do not prove it inside Jetseen's Expo 55 and React
+  Native 0.83 binary.
 
 ## Explicit non-claims
 

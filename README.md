@@ -355,8 +355,9 @@ that uses backup and vault declares:
 }
 ```
 
-This exact core, vault, and backup shape installed offline in a clean Bun 1.4.0 consumer. Direct
-`file:` dependencies without overrides fail because nested `@lena-inc/*` dependencies are registry
+All 13 archives install offline in a clean Bun 1.4.2 consumer with explicit local overrides. The 10
+portable packages import, and the three native-boundary packages resolve. Direct `file:`
+dependencies without overrides fail because nested `@lena-inc/*` dependencies are registry
 dependencies once a package leaves this workspace. Until bootstrap publication, the override shape
 is a development workaround, not the final distribution contract and not proof of Metro or native
 integration.

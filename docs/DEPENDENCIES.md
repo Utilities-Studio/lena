@@ -1,6 +1,6 @@
 # Lena dependency decisions
 
-Last reviewed: 2026-09-02.
+Last reviewed: 2026-09-08.
 
 The library-first foundation, cloud-file bridge, and StoreKit bridge are approved and locked.
 Native database drivers, cryptographic/filesystem runtimes, model runtimes, host configuration,
@@ -44,18 +44,21 @@ handwritten Result union, or duplicate schema-owned interface is approved.
 | ------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `drizzle-kit`            | `0.31.10`        | Installed host-history generator and owner-run Lena DDL export tool. No host config or migration artifact exists yet.                   |
 | `fast-check`             | `4.9.0`          | Property tests for schemas, codecs, reducers, replay, time, GPS, FTS, retention, and restore safety. Named regressions remain required. |
+| `@types/bun`             | `1.4.2`          | Bun runtime and test types aligned with the pinned repository runtime.                                                                  |
 | `knip`                   | `6.34.0`         | Configured in `knip.json` with package entry points and test/source projects. Findings require review before deletion.                  |
-| `oxfmt`                  | `0.66.0`         | The only repository formatter.                                                                                                          |
-| `oxlint`                 | `1.81.0`         | Type-aware and type-checking lint; warnings fail the gate.                                                                              |
+| `oxfmt`                  | `0.67.0`         | The only repository formatter.                                                                                                          |
+| `oxlint`                 | `1.82.0`         | Type-aware and type-checking lint; warnings fail the gate.                                                                              |
 | `oxlint-tsgolint`        | `7.0.2001`       | Pinned type-aware Oxc engine.                                                                                                           |
-| `tsdown`                 | `0.22.14`        | The only package build and declaration path; keeps dependencies external.                                                               |
+| `tsdown`                 | `0.23.0`         | The only package build and declaration path; keeps dependencies external.                                                               |
 | `typescript`             | `7.0.2`          | Declaration compiler used by tsdown. The exact upstream experimental-API warning is suppressed, not other warnings.                     |
 | `lefthook`               | `2.1.12`         | Local hook runner. Installation was script-disabled; hook installation remains an owner-run Git mutation.                               |
 | `publint`                | `0.3.24`         | Run only after Lena has a built, packed publishable artifact.                                                                           |
 | `@arethetypeswrong/core` | `0.18.5`         | Used by tsdown against each built package artifact.                                                                                     |
-| `@changesets/cli`        | `3.0.1`          | Canonical version and publish engine for the owner-run bootstrap and later tokenless GitHub OIDC releases.                              |
+| `@changesets/cli`        | `3.0.2`          | Canonical version and publish engine for the owner-run bootstrap and later tokenless GitHub OIDC releases.                              |
 
-These tools do not run Git, publish, deploy, configure infrastructure, or change a database.
+The repository and both workflows pin Bun 1.4.2. Workflow Node 24 satisfies the Node runtime
+requirements of these tools. Agents may run only the approved local quality tools; Git, publishing,
+deployment, infrastructure, and database operations remain owner-only.
 
 ## Consuming-application libraries
 
@@ -170,10 +173,9 @@ It is a host peer dependency backed by OpenIAP and StoreKit 2. Lena uses exact-p
 StoreKit-verified current entitlement and explicit restore. Hosted validation, dashboards, and
 entitlement services are not part of Private Vault.
 
-The package currently declares exact peer `5.4.1`, while Lena's development and test installation
-resolves `5.5.0`. Current source tests and built artifacts prove only the 5.5.0 surface. Align the
-peer, development dependency, and approved version documentation in one dependency change before
-application adoption.
+The package declares `expo-iap@5.5.1` as both its exact host peer and development/test version.
+Source and artifact gates prove that JavaScript surface only. Native configuration, StoreKit
+sandbox behavior, and signed-device evidence remain separate application-adoption gates.
 
 The selected exact version must be checked against Jetseen's Expo 55/RN 0.83 binary before
 adoption. Becoming does not need payment in its first Lena slice.

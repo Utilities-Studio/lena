@@ -36,9 +36,9 @@
 		"zod": "4.5.4"
 	},
 	"devDependencies": {
-		"expo-iap": "5.5.0"
+		"expo-iap": "5.5.1"
 	},
 	"peerDependencies": {
-		"expo-iap": "5.4.1"
+		"expo-iap": "5.5.1"
 	}
 }

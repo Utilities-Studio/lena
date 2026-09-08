@@ -48,8 +48,8 @@ has no data-ownership capability.
 
 ## Native gate
 
-Align the current 5.5.0 development/test resolution with the exact 5.4.1 host peer and approved
-dependency record before adoption. Then prove that selected version in the host native binary.
+Keep the exact `expo-iap@5.5.1` host peer, development/test dependency, lockfile, and approved
+dependency record aligned before adoption. Then prove that version in the host native binary.
 
 Host native configuration plus sandbox/TestFlight purchase, cancel, pending, relaunch, reinstall,
 explicit restore, refund/revocation, and App Store account-change evidence.
