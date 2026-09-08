@@ -1,0 +1,5 @@
+[test]
+preload = [
+	"./packages/storekit/test/support/expo-iap.ts",
+	"./packages/test-support/test/react-native-cloud-storage.ts"
+]
