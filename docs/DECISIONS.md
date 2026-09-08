@@ -56,19 +56,22 @@ runtime boundary.
 Decision: use Zod for structural boundaries and schema-inferred types, neverthrow for expected
 fallible composition, es-toolkit for generic collection and object transforms, date-fns for
 portable date and UTC-instant arithmetic, ts-pattern for complex exhaustive reducers, Drizzle for
-typed SQLite mappings and ordinary queries, modular Turf for geometric primitives, and fast-check
-for generative invariant tests. Lena continues to own authority, privacy, lifecycle, interruption,
-recovery, and product-neutral safety rules. A custom generic mechanism requires a documented gap in
-the directly relevant library API.
+typed SQLite mappings, generated migration histories, ordinary queries, and adapter migration
+execution, modular Turf for geometric primitives, and fast-check for generative invariant tests.
+Lena continues to own authority, privacy, lifecycle, interruption, recovery, and product-neutral
+safety rules. A custom generic mechanism requires a documented gap in the directly relevant
+library API.
 
 ## D-013: Portable, native, and application dependency boundaries
 
 Decision: package each portable dependency only where imported. The canonical Drizzle mapping lives
-in `@lena/vault` so both SQLite adapters consume one schema; it does not prove a native database
-driver, SQLCipher, or migration path. React Hook Form with its Zod resolver,
-TanStack Query, and `@date-fns/tz` stay in consuming applications. `usehooks-ts` is excluded from
-the React Native foundation. Native SQLite, crypto, filesystem, provider, StoreKit, model, and
-location bridges remain independently approved and signed-device-gated.
+in `@lena/vault` so both SQLite adapters consume one schema. The consuming application owns its
+unified Lena plus domain Drizzle Kit history. The mapping and generated history do not prove a
+native database driver, SQLCipher, backup compatibility, or migration runtime. React Hook Form
+with its Zod resolver, TanStack Query, and `@date-fns/tz` stay in consuming applications.
+`usehooks-ts` is excluded from the React Native foundation. Native SQLite, crypto, filesystem,
+provider, StoreKit, model, and location bridges remain independently approved and
+signed-device-gated.
 
 ## D-014: Release tooling does not imply publication readiness
 
@@ -86,3 +89,24 @@ modular Turf geometry; `compare-versions` owns model-version comparison; `expo-i
 2 bridge; and `react-native-cloud-storage` is the iCloud and Google Drive file bridge. Native
 packages are host peer dependencies. Their source integration does not prove native configuration,
 signed-device behavior, or runtime readiness.
+
+## D-016: Host-owned Drizzle migration history
+
+Decision: remove Lena's handwritten migration registry, planner, statement executor, and synthetic
+built-in schema fragment. Each consuming application generates one unified Drizzle Kit history from
+its domain schema plus Lena's exported table definitions. Custom backfills or constraints remain
+checked-in Drizzle migration artifacts. A future native adapter calls its official Drizzle
+`migrate()` only inside the service that has keyed and preliminarily validated the active or staging
+database.
+
+Backup discovery classifies an authenticated source schema as current, older, or future. It rejects
+future schemas. It may admit an older schema into staging, but does not call it compatible. Only a
+successful staged migration followed by target-metadata, database-integrity, and application
+invariant validation can establish compatibility before the active pointer changes. Drizzle Kit is
+an approved installed development tool; no host configuration, generated migration artifact,
+adapter runtime, or native migration evidence exists yet.
+
+The installed Drizzle 0.45.2 OP-SQLite transaction path does not await its asynchronous boundary
+operations. OP-SQLite migration execution therefore remains blocked until a fixed stable version is
+reviewed and native ordering plus rollback fixtures pass. Lena will not replace that missing
+library guarantee with another generic executor.

@@ -20,10 +20,6 @@ import {
 } from "@lena/core";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { isBackupCoverageToken, type BackupCoverageToken } from "./backup-coverage";
-
-export type { BackupCoverageToken } from "./backup-coverage";
-
 export const PERSISTABLE_LENA_ERROR_CODES: readonly LenaErrorCode[] = Object.freeze([
   ...lenaErrorCodeSchema.options,
 ]);
@@ -33,15 +29,17 @@ export const persistableLenaErrorCodeSchema = lenaErrorCodeSchema;
 export function parsePersistableLenaErrorCode(value: unknown): Result<LenaErrorCode, LenaError> {
   const parsed = persistableLenaErrorCodeSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid persisted Lena error code"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);
 }
 
-const nonNegativeSafeIntegerSchema = z.int().min(0);
+const nonNegativeSafeIntegerSchema = z.int().min(0).max(Number.MAX_SAFE_INTEGER);
 const backupObligationIdentityShape = {
   attemptCount: nonNegativeSafeIntegerSchema,
+  commitSequence: z.int().min(1).max(Number.MAX_SAFE_INTEGER),
+  committedAt: isoTimestampSchema,
   createdAt: isoTimestampSchema,
   mutationId: mutationIdSchema,
   vaultId: vaultIdSchema,
@@ -49,6 +47,8 @@ const backupObligationIdentityShape = {
 } as const;
 const backupObligationIdentityStructureShape = {
   attemptCount: z.unknown(),
+  commitSequence: z.unknown(),
+  committedAt: z.unknown(),
   createdAt: z.unknown(),
   mutationId: z.unknown(),
   vaultId: z.unknown(),
@@ -62,6 +62,9 @@ export const pendingBackupObligationSchema = z
     state: z.literal("pending"),
   })
   .superRefine((obligation, context) => {
+    if (compareIsoTimestamps(obligation.committedAt, obligation.createdAt) < 0) {
+      context.addIssue({ code: "custom", message: "commit_chronology" });
+    }
     const hasFailureCode = Object.prototype.hasOwnProperty.call(obligation, "lastFailureCode");
     if (hasFailureCode && obligation.lastFailureCode === undefined) {
       context.addIssue({ code: "custom", message: "invalid_failure_code" });
@@ -80,6 +83,7 @@ export const claimedBackupObligationSchema = z
   })
   .superRefine((obligation, context) => {
     if (
+      compareIsoTimestamps(obligation.committedAt, obligation.createdAt) < 0 ||
       obligation.attemptCount < 1 ||
       compareIsoTimestamps(obligation.claimedAt, obligation.createdAt) < 0
     ) {
@@ -100,9 +104,10 @@ export const satisfiedBackupObligationSchema = z
   })
   .superRefine((obligation, context) => {
     if (
+      compareIsoTimestamps(obligation.committedAt, obligation.createdAt) < 0 ||
       obligation.attemptCount < 1 ||
       compareIsoTimestamps(obligation.claimedAt, obligation.createdAt) < 0 ||
-      compareIsoTimestamps(obligation.coveredCommitAt, obligation.createdAt) < 0 ||
+      compareIsoTimestamps(obligation.coveredCommitAt, obligation.committedAt) < 0 ||
       compareIsoTimestamps(obligation.coveredCommitAt, obligation.claimedAt) > 0 ||
       compareIsoTimestamps(obligation.completedAt, obligation.claimedAt) < 0 ||
       compareIsoTimestamps(obligation.completedAt, obligation.coveredCommitAt) < 0
@@ -145,6 +150,8 @@ export type SatisfiedBackupObligation = z.infer<typeof satisfiedBackupObligation
 export type BackupObligation = z.infer<typeof backupObligationSchema>;
 
 export function createBackupObligation(input: {
+  commitSequence: number;
+  committedAt: IsoTimestamp;
   createdAt: IsoTimestamp;
   mutationId: MutationId;
   vaultId: VaultId;
@@ -152,6 +159,8 @@ export function createBackupObligation(input: {
 }): PendingBackupObligation {
   return Object.freeze({
     attemptCount: 0,
+    commitSequence: input.commitSequence,
+    committedAt: input.committedAt,
     createdAt: input.createdAt,
     mutationId: input.mutationId,
     state: "pending",
@@ -167,19 +176,21 @@ export function claimBackupObligation(
 ): Result<ClaimedBackupObligation, LenaError> {
   if (obligation.state !== "pending") {
     return err(
-      new LenaError("invalid_state_transition", "Only a pending backup obligation can be claimed", {
+      new LenaError("invalid_state_transition", {
         state: obligation.state,
       }),
     );
   }
 
   if (compareIsoTimestamps(claimedAt, obligation.createdAt) < 0) {
-    return err(new LenaError("invalid_timestamp", "Claim cannot precede obligation creation"));
+    return err(new LenaError("invalid_timestamp"));
   }
 
   return ok(
     Object.freeze({
       attemptCount: obligation.attemptCount + 1,
+      commitSequence: obligation.commitSequence,
+      committedAt: obligation.committedAt,
       claimedAt,
       claimId,
       createdAt: obligation.createdAt,
@@ -197,74 +208,18 @@ export function releaseBackupObligation(
   failureCode: LenaErrorCode,
 ): Result<PendingBackupObligation, LenaError> {
   if (obligation.state !== "claimed" || obligation.claimId !== claimId) {
-    return err(
-      new LenaError(
-        "invalid_state_transition",
-        "Backup claim does not match the active obligation claim",
-      ),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
 
   return ok(
     Object.freeze({
       attemptCount: obligation.attemptCount,
+      commitSequence: obligation.commitSequence,
+      committedAt: obligation.committedAt,
       createdAt: obligation.createdAt,
       lastFailureCode: failureCode,
       mutationId: obligation.mutationId,
       state: "pending",
-      vaultId: obligation.vaultId,
-      vaultInstanceId: obligation.vaultInstanceId,
-    }),
-  );
-}
-
-export function satisfyBackupObligation(
-  obligation: BackupObligation,
-  coverage: BackupCoverageToken,
-): Result<SatisfiedBackupObligation, LenaError> {
-  if (!isBackupCoverageToken(coverage)) {
-    return err(
-      new LenaError("authentication_required", "Backup coverage lacks adapter verification", {
-        boundary: "vault_backup_obligation",
-      }),
-    );
-  }
-  if (
-    obligation.state !== "claimed" ||
-    obligation.attemptCount !== coverage.attemptCount ||
-    obligation.claimId !== coverage.claimId ||
-    obligation.mutationId !== coverage.mutationId ||
-    obligation.vaultId !== coverage.vaultId ||
-    obligation.vaultInstanceId !== coverage.vaultInstanceId
-  ) {
-    return err(
-      new LenaError(
-        "invalid_state_transition",
-        "Verified generation coverage does not match the active backup obligation",
-      ),
-    );
-  }
-
-  if (
-    compareIsoTimestamps(coverage.coveredCommitAt, obligation.createdAt) < 0 ||
-    compareIsoTimestamps(coverage.coveredCommitAt, obligation.claimedAt) > 0 ||
-    compareIsoTimestamps(coverage.verifiedAt, obligation.claimedAt) < 0 ||
-    compareIsoTimestamps(coverage.verifiedAt, coverage.coveredCommitAt) < 0
-  ) {
-    return err(new LenaError("invalid_timestamp", "Backup coverage chronology is invalid"));
-  }
-
-  return ok(
-    Object.freeze({
-      attemptCount: obligation.attemptCount,
-      claimId: obligation.claimId,
-      claimedAt: obligation.claimedAt,
-      completedAt: coverage.verifiedAt,
-      coveredCommitAt: coverage.coveredCommitAt,
-      createdAt: obligation.createdAt,
-      generationId: coverage.generationId,
-      mutationId: obligation.mutationId,
-      state: "satisfied",
       vaultId: obligation.vaultId,
       vaultInstanceId: obligation.vaultInstanceId,
     }),
@@ -278,19 +233,21 @@ export function recoverStaleClaimedBackupObligation(
 ): Result<PendingBackupObligation, LenaError> {
   if (obligation.state !== "claimed") {
     return err(
-      new LenaError("invalid_state_transition", "Only a claimed obligation can be recovered", {
+      new LenaError("invalid_state_transition", {
         state: obligation.state,
       }),
     );
   }
 
   if (compareIsoTimestamps(obligation.claimedAt, staleAtOrBefore) > 0) {
-    return err(new LenaError("invalid_state_transition", "Backup obligation claim is not stale"));
+    return err(new LenaError("invalid_state_transition"));
   }
 
   return ok(
     Object.freeze({
       attemptCount: obligation.attemptCount,
+      commitSequence: obligation.commitSequence,
+      committedAt: obligation.committedAt,
       createdAt: obligation.createdAt,
       lastFailureCode: failureCode,
       mutationId: obligation.mutationId,
@@ -304,7 +261,7 @@ export function recoverStaleClaimedBackupObligation(
 export function parseBackupObligation(value: unknown): Result<BackupObligation, LenaError> {
   const stateProbe = z.object({ state: z.unknown() }).safeParse(value);
   if (!stateProbe.success) {
-    return err(new LenaError("invalid_input", "Expected a backup obligation object"));
+    return err(new LenaError("invalid_input"));
   }
 
   const structure = match(stateProbe.data.state)
@@ -322,11 +279,11 @@ export function parseBackupObligation(value: unknown): Result<BackupObligation, 
     }))
     .otherwise(() => null);
   if (structure === null) {
-    return err(new LenaError("invalid_input", "Invalid backup obligation state"));
+    return err(new LenaError("invalid_input"));
   }
   if (!structure.result.success) {
     return err(
-      new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+      new LenaError("invalid_input", {
         boundary: structure.boundary,
       }),
     );
@@ -337,28 +294,19 @@ export function parseBackupObligation(value: unknown): Result<BackupObligation, 
 
   const customIssue = parsed.error.issues.find((issue) => issue.code === "custom")?.message;
   if (customIssue === "invalid_failure_code") {
-    return err(new LenaError("invalid_input", "Invalid persisted Lena error code"));
+    return err(new LenaError("invalid_input"));
   }
   const invariantError = match(stateProbe.data.state)
     .with("pending", () =>
-      customIssue === "pending_failure_state"
-        ? new LenaError(
-            "invalid_state_transition",
-            "Pending obligation failure state does not match its attempt count",
-          )
-        : null,
+      customIssue === "pending_failure_state" ? new LenaError("invalid_state_transition") : null,
     )
     .with("claimed", () =>
-      customIssue === "claimed_state"
-        ? new LenaError("invalid_state_transition", "Invalid claimed obligation state")
-        : null,
+      customIssue === "claimed_state" ? new LenaError("invalid_state_transition") : null,
     )
     .with("satisfied", () =>
-      customIssue === "satisfied_state"
-        ? new LenaError("invalid_state_transition", "Invalid satisfied obligation state")
-        : null,
+      customIssue === "satisfied_state" ? new LenaError("invalid_state_transition") : null,
     )
-    .otherwise(() => new LenaError("invalid_input", "Invalid backup obligation state"));
+    .otherwise(() => new LenaError("invalid_input"));
   if (invariantError !== null) return err(invariantError);
 
   const failedField = parsed.error.issues[0]?.path.at(-1);
@@ -368,7 +316,7 @@ export function parseBackupObligation(value: unknown): Result<BackupObligation, 
     failedField === "coveredCommitAt" ||
     failedField === "completedAt"
   ) {
-    return err(new LenaError("invalid_timestamp", "Timestamp must be canonical UTC"));
+    return err(new LenaError("invalid_timestamp"));
   }
   if (
     failedField === "claimId" ||
@@ -385,14 +333,14 @@ export function parseBackupObligation(value: unknown): Result<BackupObligation, 
       vaultInstanceId: "VaultInstanceId",
     } as const;
     const kind = kinds[failedField];
-    return err(new LenaError("invalid_identifier", `Invalid ${kind}`, { kind }));
+    return err(new LenaError("invalid_identifier", { kind }));
   }
   if (failedField === "lastFailureCode") {
-    return err(new LenaError("invalid_input", "Invalid persisted Lena error code"));
+    return err(new LenaError("invalid_input"));
   }
 
   return err(
-    new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+    new LenaError("invalid_input", {
       boundary: `${String(stateProbe.data.state)}_backup_obligation`,
     }),
   );

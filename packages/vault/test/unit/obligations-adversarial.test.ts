@@ -13,24 +13,16 @@ import {
   claimBackupObligation,
   createBackupObligation,
   parseBackupObligation,
-  parseVaultMutationReceipt,
   recoverStaleClaimedBackupObligation,
   releaseBackupObligation,
-  satisfyBackupObligation,
-  type BackupCoverageToken,
   type ClaimedBackupObligation,
-  type VaultMutationReceipt,
 } from "../../src/index";
-import {
-  createBackupCoverageTokenFromAdapter,
-  isBackupCoverageToken,
-} from "../../src/backup-coverage";
 
-const VAULT_ID_TEXT = "018f3f5a-1d2c-7abc-8def-0123456789ab";
-const INSTANCE_ID_TEXT = "018f3f5a-1d2c-7abc-8def-1123456789ab";
-const MUTATION_ID_TEXT = "018f3f5a-1d2c-7abc-8def-2123456789ab";
-const EFFECT_ID_TEXT = "018f3f5a-1d2c-7abc-8def-3123456789ab";
-const GENERATION_ID_TEXT = "018f3f5a-1d2c-7abc-8def-4123456789ab";
+const VAULT_ID_TEXT = "018f3f5a-1d2c-4abc-8def-0123456789ab";
+const INSTANCE_ID_TEXT = "018f3f5a-1d2c-4abc-8def-1123456789ab";
+const MUTATION_ID_TEXT = "018f3f5a-1d2c-4abc-8def-2123456789ab";
+const EFFECT_ID_TEXT = "018f3f5a-1d2c-4abc-8def-3123456789ab";
+const GENERATION_ID_TEXT = "018f3f5a-1d2c-4abc-8def-4123456789ab";
 const CREATED_AT_TEXT = "2026-09-01T08:00:00.000Z";
 const COMMITTED_AT_TEXT = "2026-09-01T08:02:00.000Z";
 const CLAIMED_AT_TEXT = "2026-09-01T08:05:00.000Z";
@@ -62,6 +54,7 @@ function obligationFixtures() {
   return {
     claimedAt: claimedAt.value,
     committedAt: committedAt.value,
+    commitSequence: 1,
     completedAt: completedAt.value,
     createdAt: createdAt.value,
     effectId: effectId.value,
@@ -72,37 +65,6 @@ function obligationFixtures() {
   };
 }
 
-function receiptFor(
-  obligation: ClaimedBackupObligation,
-  committedAt = obligationFixtures().committedAt,
-): VaultMutationReceipt {
-  const receipt = parseVaultMutationReceipt({
-    backupObligationCreated: true,
-    committedAt,
-    mutationId: obligation.mutationId,
-    vaultId: obligation.vaultId,
-    vaultInstanceId: obligation.vaultInstanceId,
-  });
-  if (receipt.isErr()) throw receipt.error;
-  return receipt.value;
-}
-
-function coverageFor(
-  obligation: ClaimedBackupObligation,
-  overrides: Readonly<{
-    mutationReceipt?: VaultMutationReceipt;
-    verifiedAt?: ReturnType<typeof obligationFixtures>["completedAt"];
-  }> = {},
-) {
-  const fixture = obligationFixtures();
-  return createBackupCoverageTokenFromAdapter({
-    generationId: fixture.generationId,
-    mutationReceipt: overrides.mutationReceipt ?? receiptFor(obligation),
-    obligation,
-    verifiedAt: overrides.verifiedAt ?? fixture.completedAt,
-  });
-}
-
 function claimedObligation(): ClaimedBackupObligation {
   const fixture = obligationFixtures();
   const pending = createBackupObligation(fixture);
@@ -111,98 +73,9 @@ function claimedObligation(): ClaimedBackupObligation {
   return claimed.value;
 }
 
-describe("adapter-bound backup coverage", () => {
-  test("does not export any public coverage-token minter", () => {
-    expect("createBackupObligationSatisfactionEvidence" in vaultRoot).toBe(false);
-    expect("createBackupCoverageTokenFromAdapter" in vaultRoot).toBe(false);
-  });
-
-  test("cannot be structurally forged, spread, or revived from JSON", () => {
-    const claimed = claimedObligation();
-    const coverage = coverageFor(claimed);
-    if (coverage.isErr()) throw coverage.error;
-    expect(isBackupCoverageToken(coverage.value)).toBe(true);
-
-    const spread = { ...coverage.value } as BackupCoverageToken;
-    const serialized = JSON.parse(JSON.stringify(coverage.value)) as BackupCoverageToken;
-    expect(isBackupCoverageToken(spread)).toBe(false);
-    expect(isBackupCoverageToken(serialized)).toBe(false);
-    expect(satisfyBackupObligation(claimed, spread).isOk()).toBe(false);
-    expect(satisfyBackupObligation(claimed, serialized).isOk()).toBe(false);
-  });
-
-  test("binds and persists exact vault, mutation, attempt, generation, and commit coverage", () => {
-    const fixture = obligationFixtures();
-    const claimed = claimedObligation();
-    const coverage = coverageFor(claimed);
-    if (coverage.isErr()) throw coverage.error;
-    expect(coverage.value).toMatchObject({
-      attemptCount: claimed.attemptCount,
-      claimId: claimed.claimId,
-      coveredCommitAt: fixture.committedAt,
-      generationId: fixture.generationId,
-      mutationId: fixture.mutationId,
-      verifiedAt: fixture.completedAt,
-      vaultId: fixture.vaultId,
-      vaultInstanceId: fixture.vaultInstanceId,
-    });
-
-    const satisfied = satisfyBackupObligation(claimed, coverage.value);
-    if (satisfied.isErr()) throw satisfied.error;
-    expect(satisfied.value.coveredCommitAt).toBe(fixture.committedAt);
-    expect(parseBackupObligation(JSON.parse(JSON.stringify(satisfied.value)))).toEqual(satisfied);
-  });
-
-  test("rejects a mismatched receipt and invalid commit or verification chronology", () => {
-    const fixture = obligationFixtures();
-    const claimed = claimedObligation();
-    const otherMutation = parseMutationId("018f3f5a-1d2c-7abc-8def-5123456789ab");
-    const beforeCommit = parseIsoTimestamp("2026-09-01T07:59:00.000Z");
-    const afterClaim = parseIsoTimestamp("2026-09-01T08:06:00.000Z");
-    if (otherMutation.isErr() || beforeCommit.isErr() || afterClaim.isErr())
-      throw new Error("Bad fixture");
-
-    const wrongReceipt = parseVaultMutationReceipt({
-      backupObligationCreated: true,
-      committedAt: fixture.committedAt,
-      mutationId: otherMutation.value,
-      vaultId: fixture.vaultId,
-      vaultInstanceId: fixture.vaultInstanceId,
-    });
-    if (wrongReceipt.isErr()) throw wrongReceipt.error;
-    expect(coverageFor(claimed, { mutationReceipt: wrongReceipt.value }).isOk()).toBe(false);
-    expect(
-      coverageFor(claimed, { mutationReceipt: receiptFor(claimed, beforeCommit.value) }).isOk(),
-    ).toBe(false);
-    expect(
-      coverageFor(claimed, { mutationReceipt: receiptFor(claimed, afterClaim.value) }).isOk(),
-    ).toBe(false);
-    expect(coverageFor(claimed, { verifiedAt: fixture.createdAt }).isOk()).toBe(false);
-  });
-
-  test("rejects coverage issued for another mutation and a stale retry attempt", () => {
-    const fixture = obligationFixtures();
-    const claimed = claimedObligation();
-    const otherMutation = parseMutationId("018f3f5a-1d2c-7abc-8def-5123456789ab");
-    if (otherMutation.isErr()) throw otherMutation.error;
-    const otherPending = createBackupObligation({
-      ...fixture,
-      mutationId: otherMutation.value,
-    });
-    const otherClaim = claimBackupObligation(otherPending, fixture.effectId, fixture.claimedAt);
-    if (otherClaim.isErr()) throw otherClaim.error;
-    const otherCoverage = coverageFor(otherClaim.value);
-    if (otherCoverage.isErr()) throw otherCoverage.error;
-    expect(satisfyBackupObligation(claimed, otherCoverage.value).isOk()).toBe(false);
-
-    const staleCoverage = coverageFor(claimed);
-    if (staleCoverage.isErr()) throw staleCoverage.error;
-    const released = releaseBackupObligation(claimed, fixture.effectId, "temporarily_unavailable");
-    if (released.isErr()) throw released.error;
-    const retried = claimBackupObligation(released.value, fixture.effectId, fixture.claimedAt);
-    if (retried.isErr()) throw retried.error;
-    expect(satisfyBackupObligation(retried.value, staleCoverage.value).isOk()).toBe(false);
-  });
+test("vault does not expose an in-memory backup-completion authority", () => {
+  expect("createBackupCoverageTokenFromAdapter" in vaultRoot).toBe(false);
+  expect("satisfyBackupObligation" in vaultRoot).toBe(false);
 });
 
 describe("persisted backup obligations", () => {

@@ -65,7 +65,7 @@ export function assessOpSqliteReadiness(
     derivedFeatures,
     missingCapability: validated.isOk()
       ? null
-      : String(validated.error.details["capability"] ?? "unknown"),
+      : (validated.error.details["capability"] ?? "unknown"),
     openSequence,
     runtimeReady: false,
     status: OP_SQLITE_RUNTIME_STATUS,

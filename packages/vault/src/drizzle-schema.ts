@@ -23,6 +23,7 @@ import {
 } from "@lena/core";
 import { sql } from "drizzle-orm";
 import { check, foreignKey, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { createSelectSchema } from "drizzle-zod";
 import { match } from "ts-pattern";
 import { z } from "zod";
 
@@ -60,6 +61,9 @@ export const lenaVaultMetadataTable = sqliteTable(
 export const lenaBackupOutboxTable = sqliteTable(
   "lena_backup_outbox",
   {
+    commitSequence: integer("commit_sequence")
+      .notNull()
+      .unique("lena_backup_outbox_commit_sequence_unique"),
     mutationId: text("mutation_id").$type<MutationId>().primaryKey(),
     vaultId: text("vault_id").$type<VaultId>().notNull(),
     vaultInstanceId: text("vault_instance_id").$type<VaultInstanceId>().notNull(),
@@ -68,17 +72,23 @@ export const lenaBackupOutboxTable = sqliteTable(
     claimId: text("claim_id").$type<EffectId>(),
     generationId: text("generation_id").$type<GenerationId>(),
     createdAt: text("created_at").$type<IsoTimestamp>().notNull(),
+    committedAt: text("committed_at").$type<IsoTimestamp>().notNull(),
     claimedAt: text("claimed_at").$type<IsoTimestamp>(),
     coveredCommitAt: text("covered_commit_at").$type<IsoTimestamp>(),
     completedAt: text("completed_at").$type<IsoTimestamp>(),
     lastFailureCode: text("last_failure_code").$type<LenaErrorCode>(),
   },
   (table) => [
+    check("lena_backup_outbox_commit_sequence_check", sql`${table.commitSequence} > 0`),
     check(
       "lena_backup_outbox_state_check",
       sql`${table.state} IN ('pending', 'claimed', 'satisfied')`,
     ),
     check("lena_backup_outbox_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "lena_backup_outbox_commit_chronology_check",
+      sql`${table.committedAt} >= ${table.createdAt}`,
+    ),
     check(
       "lena_backup_outbox_last_failure_code_check",
       sql`${table.lastFailureCode} IS NULL OR ${table.lastFailureCode} IN (${PERSISTABLE_ERROR_CODE_SQL})`,
@@ -117,7 +127,7 @@ export const lenaBackupOutboxTable = sqliteTable(
           AND ${table.claimedAt} IS NOT NULL
           AND ${table.claimedAt} >= ${table.createdAt}
           AND ${table.coveredCommitAt} IS NOT NULL
-          AND ${table.coveredCommitAt} >= ${table.createdAt}
+          AND ${table.coveredCommitAt} >= ${table.committedAt}
           AND ${table.coveredCommitAt} <= ${table.claimedAt}
           AND ${table.completedAt} IS NOT NULL
           AND ${table.completedAt} >= ${table.claimedAt}
@@ -130,6 +140,50 @@ export const lenaBackupOutboxTable = sqliteTable(
       name: "lena_backup_outbox_vault_instance_fk",
       columns: [table.vaultId, table.vaultInstanceId],
       foreignColumns: [lenaVaultMetadataTable.vaultId, lenaVaultMetadataTable.vaultInstanceId],
+    }),
+    unique("lena_backup_outbox_commit_identity_unique").on(
+      table.commitSequence,
+      table.mutationId,
+      table.vaultId,
+      table.vaultInstanceId,
+    ),
+  ],
+);
+
+export const lenaVerifiedBackupGenerationsTable = sqliteTable(
+  "lena_verified_backup_generations",
+  {
+    generationId: text("generation_id").$type<GenerationId>().primaryKey(),
+    vaultId: text("vault_id").$type<VaultId>().notNull(),
+    vaultInstanceId: text("vault_instance_id").$type<VaultInstanceId>().notNull(),
+    commitSequence: integer("commit_sequence").notNull(),
+    mutationId: text("mutation_id").$type<MutationId>().notNull(),
+    committedAt: text("committed_at").$type<IsoTimestamp>().notNull(),
+    verifiedAt: text("verified_at").$type<IsoTimestamp>().notNull(),
+  },
+  (table) => [
+    check(
+      "lena_verified_backup_generations_commit_sequence_check",
+      sql`${table.commitSequence} > 0`,
+    ),
+    check(
+      "lena_verified_backup_generations_chronology_check",
+      sql`${table.verifiedAt} >= ${table.committedAt}`,
+    ),
+    foreignKey({
+      name: "lena_verified_backup_generations_vault_instance_fk",
+      columns: [table.vaultId, table.vaultInstanceId],
+      foreignColumns: [lenaVaultMetadataTable.vaultId, lenaVaultMetadataTable.vaultInstanceId],
+    }),
+    foreignKey({
+      name: "lena_verified_backup_generations_commit_fk",
+      columns: [table.commitSequence, table.mutationId, table.vaultId, table.vaultInstanceId],
+      foreignColumns: [
+        lenaBackupOutboxTable.commitSequence,
+        lenaBackupOutboxTable.mutationId,
+        lenaBackupOutboxTable.vaultId,
+        lenaBackupOutboxTable.vaultInstanceId,
+      ],
     }),
   ],
 );
@@ -166,42 +220,53 @@ export const lenaVaultDrizzleSchema = Object.freeze({
   backupOutbox: lenaBackupOutboxTable,
   processedEffects: lenaProcessedEffectsTable,
   vaultMetadata: lenaVaultMetadataTable,
+  verifiedBackupGenerations: lenaVerifiedBackupGenerationsTable,
 });
 
 export type LenaVaultDrizzleSchema = typeof lenaVaultDrizzleSchema;
 export type VaultMetadataRow = typeof lenaVaultMetadataTable.$inferSelect;
 export type BackupOutboxRow = typeof lenaBackupOutboxTable.$inferSelect;
 export type ProcessedEffectRow = typeof lenaProcessedEffectsTable.$inferSelect;
+export type VerifiedBackupGenerationRow = typeof lenaVerifiedBackupGenerationsTable.$inferSelect;
 
 const positiveSafeIntegerSchema = z.int().min(1).max(Number.MAX_SAFE_INTEGER);
 const nonNegativeSafeIntegerSchema = z.int().min(0).max(Number.MAX_SAFE_INTEGER);
 
-export const vaultMetadataRowSchema = z.strictObject({
+const derivedVaultMetadataRowSchema = createSelectSchema(lenaVaultMetadataTable, {
+  createdAt: isoTimestampSchema,
+  encryptionEnvelopeVersion: positiveSafeIntegerSchema,
+  formatVersion: positiveSafeIntegerSchema,
+  schemaVersion: schemaVersionSchema,
   singletonId: z.literal(1),
   vaultId: vaultIdSchema,
   vaultInstanceId: vaultInstanceIdSchema,
-  schemaVersion: schemaVersionSchema,
-  formatVersion: positiveSafeIntegerSchema,
-  encryptionEnvelopeVersion: positiveSafeIntegerSchema,
+});
+
+export const vaultMetadataRowSchema = z.strictObject(derivedVaultMetadataRowSchema.shape);
+
+const derivedBackupOutboxRowSchema = createSelectSchema(lenaBackupOutboxTable, {
+  attemptCount: nonNegativeSafeIntegerSchema,
+  claimId: effectIdSchema.nullable(),
+  claimedAt: isoTimestampSchema.nullable(),
+  commitSequence: positiveSafeIntegerSchema,
+  committedAt: isoTimestampSchema,
+  completedAt: isoTimestampSchema.nullable(),
+  coveredCommitAt: isoTimestampSchema.nullable(),
   createdAt: isoTimestampSchema,
+  generationId: generationIdSchema.nullable(),
+  lastFailureCode: lenaErrorCodeSchema.nullable(),
+  mutationId: mutationIdSchema,
+  state: z.enum(BACKUP_OUTBOX_STATES),
+  vaultId: vaultIdSchema,
+  vaultInstanceId: vaultInstanceIdSchema,
 });
 
 export const backupOutboxRowSchema = z
-  .strictObject({
-    mutationId: mutationIdSchema,
-    vaultId: vaultIdSchema,
-    vaultInstanceId: vaultInstanceIdSchema,
-    state: z.enum(BACKUP_OUTBOX_STATES),
-    attemptCount: nonNegativeSafeIntegerSchema,
-    claimId: effectIdSchema.nullable(),
-    generationId: generationIdSchema.nullable(),
-    createdAt: isoTimestampSchema,
-    claimedAt: isoTimestampSchema.nullable(),
-    coveredCommitAt: isoTimestampSchema.nullable(),
-    completedAt: isoTimestampSchema.nullable(),
-    lastFailureCode: lenaErrorCodeSchema.nullable(),
-  })
+  .strictObject(derivedBackupOutboxRowSchema.shape)
   .superRefine((row, context) => {
+    if (compareIsoTimestamps(row.committedAt, row.createdAt) < 0) {
+      context.addIssue({ code: "custom", message: "commit_chronology" });
+    }
     match(row.state)
       .with("pending", () => {
         if (
@@ -240,7 +305,7 @@ export const backupOutboxRowSchema = z
           row.lastFailureCode !== null ||
           (row.claimedAt !== null && compareIsoTimestamps(row.claimedAt, row.createdAt) < 0) ||
           (row.coveredCommitAt !== null &&
-            compareIsoTimestamps(row.coveredCommitAt, row.createdAt) < 0) ||
+            compareIsoTimestamps(row.coveredCommitAt, row.committedAt) < 0) ||
           (row.coveredCommitAt !== null &&
             row.claimedAt !== null &&
             compareIsoTimestamps(row.coveredCommitAt, row.claimedAt) > 0) ||
@@ -257,30 +322,37 @@ export const backupOutboxRowSchema = z
       .exhaustive();
   });
 
-export const processedEffectRowSchema = z.strictObject({
+const derivedProcessedEffectRowSchema = createSelectSchema(lenaProcessedEffectsTable, {
   effectId: effectIdSchema,
   effectKind: z.literal("backup-obligation"),
   mutationId: mutationIdSchema,
+  processedAt: isoTimestampSchema,
   vaultId: vaultIdSchema,
   vaultInstanceId: vaultInstanceIdSchema,
-  processedAt: isoTimestampSchema,
 });
 
-type TypesEqual<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
-    ? true
-    : false;
-type AssertTypeParity<Parity extends true> = Parity;
+export const processedEffectRowSchema = z.strictObject(derivedProcessedEffectRowSchema.shape);
 
-export type VaultMetadataRowSchemaParity = AssertTypeParity<
-  TypesEqual<VaultMetadataRow, z.infer<typeof vaultMetadataRowSchema>>
->;
-export type BackupOutboxRowSchemaParity = AssertTypeParity<
-  TypesEqual<BackupOutboxRow, z.infer<typeof backupOutboxRowSchema>>
->;
-export type ProcessedEffectRowSchemaParity = AssertTypeParity<
-  TypesEqual<ProcessedEffectRow, z.infer<typeof processedEffectRowSchema>>
->;
+const derivedVerifiedBackupGenerationRowSchema = createSelectSchema(
+  lenaVerifiedBackupGenerationsTable,
+  {
+    commitSequence: positiveSafeIntegerSchema,
+    committedAt: isoTimestampSchema,
+    generationId: generationIdSchema,
+    mutationId: mutationIdSchema,
+    vaultId: vaultIdSchema,
+    vaultInstanceId: vaultInstanceIdSchema,
+    verifiedAt: isoTimestampSchema,
+  },
+);
+
+export const verifiedBackupGenerationRowSchema = z
+  .strictObject(derivedVerifiedBackupGenerationRowSchema.shape)
+  .superRefine((row, context) => {
+    if (compareIsoTimestamps(row.verifiedAt, row.committedAt) < 0) {
+      context.addIssue({ code: "custom", message: "verification_predates_commit" });
+    }
+  });
 
 function parseDatabaseRow<Row>(
   schema: z.ZodType<Row>,
@@ -289,7 +361,7 @@ function parseDatabaseRow<Row>(
 ): Result<Row, LenaError> {
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid Lena-owned database row", { boundary }));
+    return err(new LenaError("invalid_input", { boundary }));
   }
 
   return ok(parsed.data);
@@ -305,4 +377,14 @@ export function parseBackupOutboxRow(value: unknown): Result<BackupOutboxRow, Le
 
 export function parseProcessedEffectRow(value: unknown): Result<ProcessedEffectRow, LenaError> {
   return parseDatabaseRow(processedEffectRowSchema, value, "lena_processed_effect_row");
+}
+
+export function parseVerifiedBackupGenerationRow(
+  value: unknown,
+): Result<VerifiedBackupGenerationRow, LenaError> {
+  return parseDatabaseRow(
+    verifiedBackupGenerationRowSchema,
+    value,
+    "lena_verified_backup_generation_row",
+  );
 }

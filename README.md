@@ -109,12 +109,15 @@ It contains no React components, database engine, cloud provider, payment SDK, o
 
 ### `@lena/vault`
 
-Vault lifecycle, schema compatibility, transactional mutation obligations, migration coordination, integrity checks, and active-vault selection.
+Vault lifecycle, schema-version classification, transactional mutation obligations, integrity checks, and active-vault selection.
 
 It never derives a vault identity from an email, payment, provider account, or installation path.
-The consuming application owns one unified vault schema version and composes its domain migrations
-with Lena's required table migrations. A backup is restorable only when that exact source-code
-registry has a complete executable path to the current host version.
+The consuming application owns one unified vault schema version and one Drizzle Kit history generated
+from its domain schema plus Lena's exported table definitions. Lena does not ship a handwritten
+migration registry, planner, or statement executor. Backup discovery classifies a candidate schema
+as current, older, or future. A future schema is rejected. An older schema may enter staging, but it
+is not proven compatible until the keyed adapter applies the host migration bundle and target
+metadata plus integrity validation pass without changing the active-vault pointer.
 
 ### `@lena/op-sqlite`
 
@@ -175,12 +178,14 @@ provider authentication, interruption behavior, and signed-device operation rema
 
 Portable local-search contracts:
 
-- FTS5 for exact words, phrases, prefixes, and deterministic ranking;
-- `sqlite-vec` for meaning-based nearest-neighbour retrieval;
+- safe FTS5 MATCH grammar for exact words, phrases, prefixes, and filters;
+- vector metadata and embedding-shape validation for future `sqlite-vec` execution;
 - hybrid ranking across lexical and semantic results;
 - rebuildable index versions tied to the source content and embedding model.
 
 Search indexes are derived data. Losing or rebuilding an index never loses a journal entry or trip.
+No executable SQLite search query exists yet. The real keyed adapter will build and run the bounded
+FTS5 and `sqlite-vec` query through Drizzle instead of exposing a standalone SQL string plan.
 
 ### `@lena/ai`
 
@@ -195,6 +200,9 @@ Portable contracts plus the narrow `expo-iap` StoreKit 2 boundary for exact-prod
 verified current entitlement, isolated from local data ownership. Cached facts and reduced catalog
 state are never stronger than a fresh StoreKit check. Native configuration and signed-device proof
 remain gated.
+
+Production uses normal static named `expo-iap` imports. Bun's test preload owns the SDK mock; test
+loading does not shape the production module boundary.
 
 Payment can control paid features. It cannot select, encrypt, hide, clear, or restore a vault.
 
@@ -333,16 +341,16 @@ that uses backup and vault declares:
 
 ```json
 {
-  "dependencies": {
-    "@lena/backup": "file:../lena/packages/backup",
-    "@lena/core": "file:../lena/packages/core",
-    "@lena/vault": "file:../lena/packages/vault"
-  },
-  "overrides": {
-    "@lena/backup": "file:../lena/packages/backup",
-    "@lena/core": "file:../lena/packages/core",
-    "@lena/vault": "file:../lena/packages/vault"
-  }
+	"dependencies": {
+		"@lena/backup": "file:../lena/packages/backup",
+		"@lena/core": "file:../lena/packages/core",
+		"@lena/vault": "file:../lena/packages/vault"
+	},
+	"overrides": {
+		"@lena/backup": "file:../lena/packages/backup",
+		"@lena/core": "file:../lena/packages/core",
+		"@lena/vault": "file:../lena/packages/vault"
+	}
 }
 ```
 
@@ -404,10 +412,16 @@ privacy, lifecycle, and failure policy in Lena:
 - es-toolkit owns generic collection and object transforms.
 - date-fns owns portable date and UTC-instant arithmetic.
 - ts-pattern owns exhaustive matching for complex state reducers.
-- Drizzle owns the canonical typed SQLite schema mapping in `@lena/vault`; `drizzle-zod` derives its
-  strict row contracts. Both SQLite adapters consume the same mapping. Direct SQL remains valid for
-  key-before-inspection, PRAGMAs, FTS5, `sqlite-vec`, integrity checks, exact recovery transactions,
-  and database behavior Drizzle cannot safely represent.
+- Drizzle owns the canonical typed SQLite mapping in `@lena/vault`, host-generated migration
+  history, and driver-specific runtime migration execution; `drizzle-zod` derives strict row
+  contracts. Each application generates one Lena plus domain history with Drizzle Kit. A future
+  adapter calls the official `migrate()` only inside its keyed open or staging service. Direct SQL
+  remains valid for key-before-inspection, PRAGMAs, FTS5, `sqlite-vec`, integrity checks, exact
+  recovery transactions, and custom migration backfills or constraints Drizzle cannot represent.
+  Such migration SQL remains a checked-in Drizzle artifact, never a second TypeScript migration
+  engine.
+- The owner-run `bun run schema:export` command prints the current Lena table DDL for inspection.
+  It does not create a host migration history, apply a migration, or prove backup compatibility.
 - `canonicalize` owns RFC 8785 backup-manifest bytes that are hashed or authenticated.
 - Modular `@turf/*` packages own geometric primitives. Lena still owns privacy minimization,
   antimeridian policy, overlap priority, and review-first behavior. Flatbush owns the static
@@ -418,6 +432,9 @@ privacy, lifecycle, and failure policy in Lena:
 `expo-iap` and `react-native-cloud-storage` are narrow host peer dependencies for StoreKit 2 and
 personal cloud files. They do not provide a native SQLite driver, SQLCipher, backup crypto,
 filesystem staging, model runtime, host configuration, or signed-device evidence.
+
+Production native boundaries use static named imports. Bun preloads test-owned SDK mocks before
+unit modules evaluate; production loading is never changed to accommodate a test runner.
 
 React Hook Form with its Zod resolver, TanStack Query, and `@date-fns/tz` are consuming-application
 tools. They do not belong in Lena's portable packages. `usehooks-ts` is excluded because Lena's
@@ -439,8 +456,9 @@ No native OP-SQLite or Expo SQLite driver, SQLCipher runtime, backup-cryptograph
 filesystem staging runtime, audited country dataset, or local-model runtime is implemented. The
 `expo-iap` StoreKit service and read-only `react-native-cloud-storage` provider seams are
 source-integrated, but native configuration and signed-device behavior remain unproven. Immutable
-cloud write/delete execution is not implemented. No Lena package is published, installed in an
-application, runtime-complete, or proven on a signed device.
+cloud write/delete execution is not implemented. No host migration history or generated migration
+artifact exists, and no adapter migration runtime has executed. No Lena package is published,
+installed in an application, runtime-complete, or proven on a signed device.
 
 See [implementation status](./docs/STATUS.md), [ordered plans](./docs/plans/README.md), and
 [dependency approval batches](./docs/DEPENDENCIES.md).

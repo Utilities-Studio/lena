@@ -15,9 +15,16 @@
 - Close deterministically before pointer swaps.
 - Define one typed SQLite mapping with Drizzle in `@lena/vault`; both adapters consume it and derive
   strict Zod row and write contracts rather than duplicating database shapes.
+- Consume the application's one generated Lena plus domain Drizzle migration history. Call the
+  official adapter-specific `migrate()` only inside the service that has keyed and preliminarily
+  validated the active or staging database.
 - Keep direct SQL for SQLCipher key-before-inspection, PRAGMAs, FTS5, `sqlite-vec`, integrity
-  checks, exact recovery transactions, and constraints or migration behavior Drizzle cannot
-  represent safely.
+  checks, and exact recovery transactions. Constraints and data backfills Drizzle cannot represent
+  stay in checked-in Drizzle custom migration artifacts, not a Lena registry, planner, or statement
+  executor.
+- After migration, require the target schema version, database integrity, foreign-key integrity,
+  and application invariants before the service reports readiness or permits a staging pointer
+  swap.
 
 ## `@lena/op-sqlite`
 
@@ -29,19 +36,24 @@
 
 - Compatibility target for Becoming and Expo-managed applications.
 - Proposed external dependency: `expo-sqlite` with SQLCipher configuration.
-- Must prove key-before-migration behavior and bundled schema upgrades.
+- Must prove key-before-migration behavior and host-bundled Drizzle schema upgrades.
 
 ## Acceptance
 
 - Identical contract tests run against both real engines.
-- Real SQLite migration fixtures cover every supported schema.
+- Real SQLite fixtures exercise the host-generated Drizzle history from every supported schema,
+  including failed migration, target-metadata mismatch, integrity failure, and rollback.
+- OP-SQLite migration execution requires a reviewed Drizzle version that awaits its asynchronous
+  transaction boundary plus native proof that statements cannot escape `COMMIT` or `ROLLBACK`.
 - Wrong key and missing key fail closed without creating a replacement database.
 - Snapshot plus concurrent mutation cannot produce a partially committed generation.
 - OP-SQLite becomes the default only after at least 25 percent p95 improvement or materially lower JS-thread blocking with no recovery/build regression.
 
 ## Approval boundary
 
-`drizzle-orm` and Zod are approved mapping dependencies, not native engines. Native implementation
-does not begin until the exact OP-SQLite and Expo SQLite packages, versions, SQLCipher
-configuration, and host compatibility are approved. Adding a peer dependency remains a separate
-dependency decision. Agents never execute database or migration commands.
+`drizzle-orm` and Zod are approved portable dependencies, not native engines. Drizzle Kit 0.31.10
+is an approved installed development generator, but no host configuration or migration artifact has
+been generated. Native implementation does not begin until the exact OP-SQLite and Expo SQLite
+packages, versions, SQLCipher configuration, and host compatibility are approved. Adding a peer
+dependency remains a separate dependency decision. Agents never execute database or migration
+commands.

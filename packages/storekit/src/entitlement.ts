@@ -23,7 +23,7 @@ import {
   type StoreKitProductType,
 } from "./policy";
 import { isAfter, parseISO } from "date-fns";
-import { uniqBy } from "es-toolkit";
+import { orderBy, uniqBy } from "es-toolkit";
 import { match } from "ts-pattern";
 import { z } from "zod";
 
@@ -33,6 +33,7 @@ export interface StoreKitStartupEntitlementCache {
   readonly wasEntitled: boolean;
 }
 
+/** @deprecated Cached reducer projection only. Use StoreKitRuntimeObservation for access gating. */
 export type StoreKitEntitlementAuthority =
   | Readonly<{ kind: "unknown" }>
   | Readonly<{
@@ -61,7 +62,7 @@ export type StoreKitSnapshotSource = z.infer<typeof storeKitSnapshotSourceSchema
 const runtimeStoreKitEntitlementEventBrand: unique symbol = Symbol(
   "RuntimeStoreKitEntitlementEvent",
 );
-const runtimeStoreKitEntitlementEvents = new WeakSet<object>();
+const runtimeStoreKitEntitlementEvents = new WeakSet();
 
 interface RuntimeStoreKitEntitlementEvent {
   readonly [runtimeStoreKitEntitlementEventBrand]: true;
@@ -115,13 +116,16 @@ const nativeUnavailableEventShapeSchema = z.strictObject({
 function issueRuntimeStoreKitEntitlementEvent<T extends object>(
   event: T,
 ): T & RuntimeStoreKitEntitlementEvent {
-  Object.defineProperty(event, runtimeStoreKitEntitlementEventBrand, {
+  const runtimeEvent: T & RuntimeStoreKitEntitlementEvent = Object.assign({}, event, {
+    [runtimeStoreKitEntitlementEventBrand]: true as const,
+  });
+  Object.defineProperty(runtimeEvent, runtimeStoreKitEntitlementEventBrand, {
     configurable: false,
     enumerable: false,
     value: true,
     writable: false,
   });
-  const issuedEvent = Object.freeze(event) as T & RuntimeStoreKitEntitlementEvent;
+  const issuedEvent = Object.freeze(runtimeEvent);
   runtimeStoreKitEntitlementEvents.add(issuedEvent);
   return issuedEvent;
 }
@@ -146,7 +150,7 @@ export function parseStoreKitStartupEntitlementCache(
   const record = startupCacheSchema.safeParse(input);
   if (!record.success) {
     return err(
-      new LenaError("invalid_input", "Cached StoreKit entitlement is invalid", {
+      new LenaError("invalid_input", {
         boundary: "storekit_startup_cache",
       }),
     );
@@ -154,7 +158,7 @@ export function parseStoreKitStartupEntitlementCache(
 
   if (record.data.productId !== policy.productId) {
     return err(
-      new LenaError("invalid_input", "Cached StoreKit product does not match", {
+      new LenaError("invalid_input", {
         boundary: "storekit_startup_cache",
       }),
     );
@@ -183,7 +187,7 @@ export function createStoreKitTransactionEventFromNativeAdapter(
 ): Result<StoreKitEntitlementTransactionEvent, LenaError> {
   if (!isVerifiedStoreKitEntitlementFact(fact)) {
     return err(
-      new LenaError("authentication_required", "StoreKit fact lacks native verification", {
+      new LenaError("authentication_required", {
         boundary: "storekit_transaction_event",
       }),
     );
@@ -204,7 +208,7 @@ export function createStoreKitEntitlementSnapshotFromNativeAdapter(
   const record = nativeSnapshotShapeSchema.safeParse(input);
   if (!record.success) {
     return err(
-      new LenaError("invalid_input", "StoreKit snapshot facts are invalid", {
+      new LenaError("invalid_input", {
         boundary: "storekit_snapshot",
       }),
     );
@@ -222,21 +226,21 @@ export function createStoreKitEntitlementSnapshotFromNativeAdapter(
   for (const fact of record.data.facts) {
     if (!isVerifiedStoreKitEntitlementFact(fact)) {
       return err(
-        new LenaError("authentication_required", "Snapshot contains an unverified StoreKit fact", {
+        new LenaError("authentication_required", {
           boundary: "storekit_snapshot",
         }),
       );
     }
     if (fact.sequence >= sequence.value) {
       return err(
-        new LenaError("invalid_input", "Snapshot sequence must follow all of its StoreKit facts", {
+        new LenaError("invalid_input", {
           boundary: "storekit_snapshot",
         }),
       );
     }
     if (isAfter(parseISO(fact.observedAt), parseISO(observedAt.value))) {
       return err(
-        new LenaError("invalid_input", "Snapshot observation predates one of its facts", {
+        new LenaError("invalid_input", {
           boundary: "storekit_snapshot",
         }),
       );
@@ -245,14 +249,14 @@ export function createStoreKitEntitlementSnapshotFromNativeAdapter(
   }
   if (uniqBy(facts, (fact) => fact.productId).length !== facts.length) {
     return err(
-      new LenaError("conflict", "Snapshot contains duplicate StoreKit products", {
+      new LenaError("conflict", {
         boundary: "storekit_snapshot",
       }),
     );
   }
   if (uniqBy(facts, (fact) => fact.sequence).length !== facts.length) {
     return err(
-      new LenaError("conflict", "Snapshot contains duplicate StoreKit sequences", {
+      new LenaError("conflict", {
         boundary: "storekit_snapshot",
       }),
     );
@@ -281,7 +285,7 @@ export function createStoreKitUnavailableEventFromNativeAdapter(
   const record = nativeUnavailableEventShapeSchema.safeParse(input);
   if (!record.success) {
     return err(
-      new LenaError("invalid_input", "StoreKit unavailable event is invalid", {
+      new LenaError("invalid_input", {
         boundary: "storekit_unavailable_event",
       }),
     );
@@ -313,7 +317,7 @@ export function parseStoreKitEntitlementEvent(
   }
 
   return err(
-    new LenaError("authentication_required", "StoreKit event lacks native adapter authority", {
+    new LenaError("authentication_required", {
       boundary: "storekit_entitlement_event",
     }),
   );
@@ -343,7 +347,11 @@ export function storeKitEntitlementEventFingerprint(event: StoreKitEntitlementEv
         sequence,
         observedAt,
         source,
-        facts.map(storeKitFactFingerprint).toSorted(),
+        orderBy(
+          facts.map((fact) => ({ fingerprint: storeKitFactFingerprint(fact) })),
+          [({ fingerprint }) => fingerprint],
+          ["asc"],
+        ).map(({ fingerprint }) => fingerprint),
       ]),
     )
     .exhaustive();

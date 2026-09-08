@@ -1,5 +1,5 @@
 import { err, LenaError, ok, type Result } from "@lena/core";
-import { uniq } from "es-toolkit";
+import { orderBy, uniq } from "es-toolkit";
 import { z } from "zod";
 
 export const MAX_FTS_CLAUSES = 64;
@@ -33,12 +33,12 @@ const COLUMN_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export function buildFts5Query(input: FtsQueryInput): Result<CompiledFtsQuery, LenaError> {
   const parsedInput = ftsQueryInputSchema.safeParse(input);
   if (!parsedInput.success) {
-    return err(new LenaError("invalid_input", "FTS query requires at least one clause"));
+    return err(new LenaError("invalid_input"));
   }
 
   if (parsedInput.data.clauses.length > MAX_FTS_CLAUSES) {
     return err(
-      new LenaError("limit_exceeded", "FTS query has too many clauses", {
+      new LenaError("limit_exceeded", {
         maximum: MAX_FTS_CLAUSES,
       }),
     );
@@ -63,7 +63,7 @@ export function buildFts5Query(input: FtsQueryInput): Result<CompiledFtsQuery, L
 
 function compileClause(clause: FtsQueryClause): Result<string, LenaError> {
   if (clause.kind !== "term" && clause.kind !== "phrase" && clause.kind !== "prefix") {
-    return err(new LenaError("invalid_input", "Invalid FTS clause kind"));
+    return err(new LenaError("invalid_input"));
   }
 
   const normalizedText = normalizeClauseText(clause.text);
@@ -72,7 +72,7 @@ function compileClause(clause: FtsQueryClause): Result<string, LenaError> {
   }
 
   if (clause.kind !== "phrase" && /\s/u.test(normalizedText.value)) {
-    return err(new LenaError("invalid_input", "FTS term and prefix clauses must contain one term"));
+    return err(new LenaError("invalid_input"));
   }
 
   const quotedText = `"${normalizedText.value.replaceAll('"', '""')}"`;
@@ -91,21 +91,21 @@ function compileClause(clause: FtsQueryClause): Result<string, LenaError> {
 
 function normalizeClauseText(value: unknown): Result<string, LenaError> {
   if (typeof value !== "string") {
-    return err(new LenaError("invalid_input", "FTS clause text must be a string"));
+    return err(new LenaError("invalid_input"));
   }
 
   if (hasForbiddenFtsControlCharacter(value)) {
-    return err(new LenaError("invalid_input", "FTS clause text contains a control character"));
+    return err(new LenaError("invalid_input"));
   }
 
   const normalized = value.normalize("NFC").replace(/\s+/gu, " ").trim();
   if (normalized.length === 0) {
-    return err(new LenaError("invalid_input", "FTS clause text is empty"));
+    return err(new LenaError("invalid_input"));
   }
 
   if (Array.from(normalized).length > MAX_FTS_CLAUSE_CODE_POINTS) {
     return err(
-      new LenaError("limit_exceeded", "FTS clause text is too long", {
+      new LenaError("limit_exceeded", {
         maximum: MAX_FTS_CLAUSE_CODE_POINTS,
       }),
     );
@@ -122,18 +122,26 @@ function normalizeColumns(
   }
 
   if (!Array.isArray(value) || value.length === 0) {
-    return err(new LenaError("invalid_input", "FTS columns must be a non-empty array"));
+    return err(new LenaError("invalid_input"));
   }
 
   const columns: string[] = [];
   for (const column of value) {
     if (typeof column !== "string" || !COLUMN_PATTERN.test(column)) {
-      return err(new LenaError("invalid_input", "Invalid FTS column name"));
+      return err(new LenaError("invalid_input"));
     }
     columns.push(column);
   }
 
-  return ok(Object.freeze(uniq(columns).toSorted(compareText)));
+  return ok(
+    Object.freeze(
+      orderBy(
+        uniq(columns).map((column) => ({ column })),
+        [({ column }) => column],
+        ["asc"],
+      ).map(({ column }) => column),
+    ),
+  );
 }
 
 function hasForbiddenFtsControlCharacter(value: string): boolean {
@@ -150,8 +158,4 @@ function hasForbiddenFtsControlCharacter(value: string): boolean {
     }
   }
   return false;
-}
-
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }

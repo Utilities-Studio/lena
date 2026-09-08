@@ -23,13 +23,7 @@ export const SUPPORTED_MANUAL_ENVELOPE_VERSION = 1 as const;
 const MANUAL_BACKUP_FILE_NAME_PATTERN =
   /^lena-backup-(\d{4})(\d{2})(\d{2})-([0-9a-f-]{36})\.lena$/i;
 
-export const manualBackupCompletedDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((value) => {
-    const parsed = new Date(`${value}T00:00:00.000Z`);
-    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
-  });
+export const manualBackupCompletedDateSchema = z.iso.date();
 
 export const manualBackupFileIdentitySchema = z
   .strictObject({
@@ -72,7 +66,7 @@ const manualBackupFileNameInputSchema = z
 
 export const manualBackupImportMetadataSchema = z
   .strictObject({
-    byteLength: z.number().int().refine(Number.isSafeInteger).min(1).max(MAX_BACKUP_BYTE_LENGTH),
+    byteLength: z.int().min(1).max(MAX_BACKUP_BYTE_LENGTH),
     detectedEnvelopeVersion: z.literal(SUPPORTED_MANUAL_ENVELOPE_VERSION),
     fileName: manualBackupFileNameInputSchema,
     mediaType: z.enum([LENA_BACKUP_MEDIA_TYPE, "application/octet-stream"]).nullable(),
@@ -116,7 +110,7 @@ export type ManualBackupImportAttempt = z.infer<typeof manualBackupImportAttempt
 export const manualBackupImportEventSchema = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("begin-copy") }),
   z.strictObject({
-    byteLength: z.number().int().refine(Number.isSafeInteger).min(0),
+    byteLength: z.int().nonnegative(),
     stagingCiphertextUri: stagingCiphertextUriSchema,
     type: z.literal("record-copy"),
   }),
@@ -143,7 +137,7 @@ export function parseManualBackupFileName(
 ): Result<ManualBackupFileIdentity, LenaError> {
   const parsed = manualBackupFileNameSchema.safeParse(fileName);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid Lena backup filename"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);
@@ -161,7 +155,7 @@ export function createManualBackupExportDescriptor(
     verification.vaultId !== manifest.vaultId ||
     sourceCiphertextUri === null
   ) {
-    return err(new LenaError("integrity_failed", "Verified object and manifest do not match"));
+    return err(new LenaError("integrity_failed"));
   }
   const date = manifest.completedAt.slice(0, 10).replaceAll("-", "");
   return ok(
@@ -177,18 +171,18 @@ export function createManualBackupExportDescriptor(
 }
 
 export function preflightManualBackupImport(
-  metadata: ManualBackupImportMetadata,
+  metadata: unknown,
 ): Result<ManualBackupImportMetadata, LenaError> {
   const parsed = manualBackupImportMetadataSchema.safeParse(metadata);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid manual backup import metadata"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);
 }
 
 export function createManualBackupImportAttempt(
-  metadata: ManualBackupImportMetadata,
+  metadata: unknown,
 ): Result<ManualBackupImportAttempt, LenaError> {
   const screened = preflightManualBackupImport(metadata);
   if (screened.isErr()) return err(screened.error);
@@ -211,7 +205,7 @@ export function reduceManualBackupImportAttempt(
   const parsedAttempt = manualBackupImportAttemptSchema.safeParse(attempt);
   const parsedEvent = manualBackupImportEventSchema.safeParse(event);
   if (!parsedAttempt.success || !parsedEvent.success) {
-    return err(new LenaError("invalid_input", "Invalid manual backup import transition input"));
+    return err(new LenaError("invalid_input"));
   }
 
   return match([parsedAttempt.data, parsedEvent.data] as const)
@@ -231,9 +225,7 @@ export function reduceManualBackupImportAttempt(
     )
     .with([{ state: "copying" }, { type: "record-copy" }], ([copying, copied]) => {
       if (copied.byteLength !== copying.metadata.byteLength) {
-        return err(
-          new LenaError("integrity_failed", "Copied backup length does not match selection"),
-        );
+        return err(new LenaError("integrity_failed"));
       }
 
       return ok(
@@ -246,7 +238,7 @@ export function reduceManualBackupImportAttempt(
     })
     .otherwise(([current, nextEvent]) =>
       err(
-        new LenaError("invalid_state_transition", "Invalid manual backup import transition", {
+        new LenaError("invalid_state_transition", {
           event: nextEvent.type,
           state: current.state,
         }),
@@ -268,7 +260,7 @@ export function validateManualBackupFileIdentity(
     identity.value.generationId !== manifest.generationId ||
     identity.value.completedDate !== manifest.completedAt.slice(0, 10)
   ) {
-    return err(new LenaError("integrity_failed", "Backup filename and manifest do not match"));
+    return err(new LenaError("integrity_failed"));
   }
 
   return identity;

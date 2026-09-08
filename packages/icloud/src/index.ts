@@ -1,14 +1,24 @@
 import {
-  getGenerationObjectPath,
-  getRuntimeLocalCiphertextUri,
-  isAuthorizedRetentionPlan,
-  isRuntimeClaimedBackupAttempt,
-  isRuntimeRemoteObjectReceipt,
-  isRuntimeVerifiedGeneration,
+  createImmutableTransportUploadPlan,
+  createTransportDeletePlan,
+  createTransportDownloadPlan,
+  createTransportInspectPlan,
+  createTransportListPlan,
+  immutableTransportDeletePlanSchema,
+  immutableTransportUploadPlanSchema,
+  isAuthorizedImmutableTransportDeletePlan,
+  isAuthorizedImmutableTransportUploadPlan,
+  reconcileImmutableTransportConflict,
+  transportCiphertextUriSchema,
+  transportContinuationTokenSchema,
+  transportProviderObjectIdSchema,
+  transportRemotePathSchema,
   transportFailure,
   type BackupTransportFailure,
   type BackupAttempt,
   type GenerationManifest,
+  type ImmutableTransportDeletePlan,
+  type ImmutableTransportUploadPlan,
   type RemoteObjectReceipt,
   type RetentionPlan,
   type VerifiedGeneration,
@@ -25,25 +35,25 @@ import {
 import { match } from "ts-pattern";
 import { z } from "zod";
 
+export * from "./cloud-storage-read-runtime";
+
 const iCloudUploadPlanMarker = Symbol("lena.icloud-upload-plan");
 const iCloudDeletePlanMarker = Symbol("lena.icloud-delete-plan");
-const authorizedICloudUploadPlans = new WeakSet<object>();
-const authorizedICloudDeletePlans = new WeakSet<object>();
 
 export type ICloudImmutableUploadPlan = Readonly<{
-  readonly [iCloudUploadPlanMarker]: true;
+  readonly [iCloudUploadPlanMarker]: ImmutableTransportUploadPlan;
   readonly claimId: EffectId;
   readonly conflictBehavior: "verify-existing-exact-object";
+  readonly executionAuthorized: false;
   readonly expectedObjectByteLength: number;
   readonly expectedObjectChecksum: VerifiedGeneration["objectChecksum"];
   readonly generationId: GenerationId;
   readonly localCiphertextUri: string;
+  readonly provider: "icloud";
   readonly remotePath: string;
   readonly vaultId: VaultId;
   readonly visibility: "app-private";
 }>;
-
-export interface ICloudConflictTarget extends ICloudExactObjectPlan {}
 
 export interface ICloudListPlan {
   readonly continuationToken: string | null;
@@ -65,11 +75,13 @@ export interface ICloudDownloadPlan extends ICloudExactObjectPlan {
 
 export type ICloudDeletePlan = Readonly<
   ICloudExactObjectPlan & {
-    readonly [iCloudDeletePlanMarker]: true;
+    readonly [iCloudDeletePlanMarker]: ImmutableTransportDeletePlan;
     readonly authorizedByRetention: true;
+    readonly executionAuthorized: false;
     readonly expectedObjectByteLength: number;
     readonly expectedObjectChecksum: VerifiedGeneration["objectChecksum"];
     readonly generationId: VerifiedGeneration["generationId"];
+    readonly provider: "icloud";
     readonly vaultId: VaultId;
   }
 >;
@@ -87,46 +99,48 @@ export const iCloudFailureCodeSchema = z.enum([
 
 export type ICloudFailureCode = z.infer<typeof iCloudFailureCodeSchema>;
 
-export const iCloudContinuationTokenSchema = z
-  .string()
-  .max(1_024)
-  .refine((value) => value.trim().length > 0);
-
-export const iCloudProviderObjectIdSchema = z
-  .string()
-  .max(512)
-  .refine((value) => value.trim().length > 0 && !/[\r\n]/.test(value));
-
-export const iCloudCiphertextUriSchema = z
-  .string()
-  .max(2_048)
-  .refine((value) => value.trim().length > 0 && !/[\r\n]/.test(value));
+export const iCloudContinuationTokenSchema = transportContinuationTokenSchema;
+export const iCloudProviderObjectIdSchema = transportProviderObjectIdSchema;
+export const iCloudCiphertextUriSchema = transportCiphertextUriSchema;
+export const iCloudImmutableUploadRequestSchema = immutableTransportUploadPlanSchema
+  .unwrap()
+  .extend({
+    provider: z.literal("icloud"),
+    visibility: z.literal("app-private"),
+  })
+  .readonly();
+export const iCloudDeleteRequestSchema = immutableTransportDeletePlanSchema
+  .unwrap()
+  .extend({ provider: z.literal("icloud") })
+  .readonly();
 
 export const iCloudConflictTargetSchema = z
   .strictObject({
     providerObjectId: iCloudProviderObjectIdSchema,
-    remotePath: z
-      .string()
-      .max(1_024)
-      .refine((value) => value.trim().length > 0 && !/[\r\n]/.test(value)),
+    remotePath: transportRemotePathSchema,
   })
   .readonly();
 
-function validateUri(value: string, boundary: string): Result<string, LenaError> {
-  const parsed = iCloudCiphertextUriSchema.safeParse(value);
-  if (!parsed.success) {
-    return err(new LenaError("invalid_input", `Invalid ${boundary} URI`));
-  }
-  return ok(parsed.data);
+export type ICloudConflictTarget = z.infer<typeof iCloudConflictTargetSchema>;
+
+function transportUploadPlan(value: unknown): ImmutableTransportUploadPlan | null {
+  if (typeof value !== "object" || value === null) return null;
+  const transport = (value as { readonly [iCloudUploadPlanMarker]?: unknown })[
+    iCloudUploadPlanMarker
+  ];
+  return isAuthorizedImmutableTransportUploadPlan(transport) && transport.provider === "icloud"
+    ? transport
+    : null;
 }
 
-function verificationMatchesManifest(
-  manifest: GenerationManifest,
-  verification: VerifiedGeneration,
-): boolean {
-  return (
-    verification.generationId === manifest.generationId && verification.vaultId === manifest.vaultId
-  );
+function transportDeletePlan(value: unknown): ImmutableTransportDeletePlan | null {
+  if (typeof value !== "object" || value === null) return null;
+  const transport = (value as { readonly [iCloudDeletePlanMarker]?: unknown })[
+    iCloudDeletePlanMarker
+  ];
+  return isAuthorizedImmutableTransportDeletePlan(transport) && transport.provider === "icloud"
+    ? transport
+    : null;
 }
 
 export function createICloudImmutableUploadPlan(
@@ -134,78 +148,48 @@ export function createICloudImmutableUploadPlan(
   verification: VerifiedGeneration,
   attempt: BackupAttempt,
 ): Result<ICloudImmutableUploadPlan, LenaError> {
-  const localCiphertextUri = getRuntimeLocalCiphertextUri(verification);
-  if (
-    !isRuntimeVerifiedGeneration(verification) ||
-    verification.kind !== "local" ||
-    verification.provider !== null ||
-    verification.providerObjectId !== null ||
-    verification.providerObjectPath !== null ||
-    localCiphertextUri === null ||
-    !verificationMatchesManifest(manifest, verification) ||
-    !isRuntimeClaimedBackupAttempt(attempt) ||
-    attempt.state !== "uploading" ||
-    attempt.provider !== "icloud" ||
-    attempt.vaultId !== manifest.vaultId ||
-    attempt.generationId !== manifest.generationId ||
-    attempt.objectByteLength !== verification.objectByteLength ||
-    attempt.objectChecksum !== verification.objectChecksum
-  ) {
-    return err(new LenaError("integrity_failed", "Verified object and manifest do not match"));
-  }
-
-  const plan = Object.freeze({
-    [iCloudUploadPlanMarker]: true as const,
-    claimId: attempt.claimId,
-    conflictBehavior: "verify-existing-exact-object" as const,
-    expectedObjectByteLength: verification.objectByteLength,
-    expectedObjectChecksum: verification.objectChecksum,
-    generationId: manifest.generationId,
-    localCiphertextUri,
-    remotePath: getGenerationObjectPath(manifest),
-    vaultId: manifest.vaultId,
+  const transport = createImmutableTransportUploadPlan(manifest, verification, attempt, "icloud");
+  if (transport.isErr()) return err(transport.error);
+  const plan: ICloudImmutableUploadPlan = {
+    [iCloudUploadPlanMarker]: transport.value,
+    claimId: transport.value.claimId,
+    conflictBehavior: transport.value.conflictBehavior,
+    executionAuthorized: false as const,
+    expectedObjectByteLength: transport.value.expectedObjectByteLength,
+    expectedObjectChecksum: transport.value.expectedObjectChecksum,
+    generationId: transport.value.generationId,
+    localCiphertextUri: transport.value.localCiphertextUri,
+    provider: "icloud" as const,
+    remotePath: transport.value.remotePath,
+    vaultId: transport.value.vaultId,
     visibility: "app-private" as const,
+  };
+  Object.defineProperty(plan, iCloudUploadPlanMarker, {
+    configurable: false,
+    enumerable: false,
+    value: transport.value,
+    writable: false,
   });
-  authorizedICloudUploadPlans.add(plan);
-  return ok(plan);
+  return ok(Object.freeze(plan));
 }
 
 export function isAuthorizedICloudImmutableUploadPlan(
   value: unknown,
 ): value is ICloudImmutableUploadPlan {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { readonly [iCloudUploadPlanMarker]?: unknown })[iCloudUploadPlanMarker] === true &&
-    authorizedICloudUploadPlans.has(value)
-  );
+  return transportUploadPlan(value) !== null;
 }
 
 export function isAuthorizedICloudDeletePlan(value: unknown): value is ICloudDeletePlan {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { readonly [iCloudDeletePlanMarker]?: unknown })[iCloudDeletePlanMarker] === true &&
-    authorizedICloudDeletePlans.has(value)
-  );
+  return transportDeletePlan(value) !== null;
 }
 
 export function createICloudListPlan(
   vaultId: VaultId,
   continuationToken: string | null = null,
 ): Result<ICloudListPlan, LenaError> {
-  const parsedToken = z
-    .union([iCloudContinuationTokenSchema, z.null()])
-    .safeParse(continuationToken);
-  if (!parsedToken.success) {
-    return err(new LenaError("invalid_input", "Invalid iCloud continuation token"));
-  }
-  return ok(
-    Object.freeze({
-      continuationToken: parsedToken.data,
-      prefix: `vaults/${vaultId}/generations/`,
-      readOnly: true as const,
-    }),
+  return createTransportListPlan(vaultId, "icloud", continuationToken).map(
+    ({ continuationToken: token, prefix, readOnly }) =>
+      Object.freeze({ continuationToken: token, prefix, readOnly }),
   );
 }
 
@@ -213,15 +197,9 @@ export function createICloudInspectPlan(
   manifest: GenerationManifest,
   providerObjectId: string,
 ): Result<ICloudExactObjectPlan, LenaError> {
-  const parsedObjectId = iCloudProviderObjectIdSchema.safeParse(providerObjectId);
-  if (!parsedObjectId.success) {
-    return err(new LenaError("invalid_input", "Invalid iCloud object id"));
-  }
-  return ok(
-    Object.freeze({
-      providerObjectId: parsedObjectId.data,
-      remotePath: getGenerationObjectPath(manifest),
-    }),
+  return createTransportInspectPlan(manifest, "icloud", providerObjectId).map(
+    ({ providerObjectId: objectId, remotePath }) =>
+      Object.freeze({ providerObjectId: objectId, remotePath }),
   );
 }
 
@@ -231,23 +209,11 @@ export function reconcileICloudUploadConflict(
   receipt: RemoteObjectReceipt,
 ): Result<RemoteObjectReceipt, LenaError> {
   const parsedTarget = iCloudConflictTargetSchema.safeParse(target);
-  if (
-    !parsedTarget.success ||
-    !isAuthorizedICloudImmutableUploadPlan(plan) ||
-    !isRuntimeRemoteObjectReceipt(receipt) ||
-    parsedTarget.data.remotePath !== plan.remotePath ||
-    parsedTarget.data.providerObjectId !== receipt.providerObjectId ||
-    receipt.claimId !== plan.claimId ||
-    receipt.provider !== "icloud" ||
-    receipt.vaultId !== plan.vaultId ||
-    receipt.generationId !== plan.generationId ||
-    receipt.providerObjectPath !== plan.remotePath ||
-    receipt.objectByteLength !== plan.expectedObjectByteLength ||
-    receipt.objectChecksum !== plan.expectedObjectChecksum
-  ) {
-    return err(new LenaError("conflict", "Existing iCloud object is not the expected generation"));
+  const transport = transportUploadPlan(plan);
+  if (!parsedTarget.success || transport === null) {
+    return err(new LenaError("conflict"));
   }
-  return ok(receipt);
+  return reconcileImmutableTransportConflict(transport, parsedTarget.data, receipt);
 }
 
 export function createICloudDownloadPlan(
@@ -255,27 +221,16 @@ export function createICloudDownloadPlan(
   verification: VerifiedGeneration,
   stagingCiphertextUri: string,
 ): Result<ICloudDownloadPlan, LenaError> {
-  const uri = validateUri(stagingCiphertextUri, "staging ciphertext");
-  if (uri.isErr()) return err(uri.error);
-  if (
-    !verificationMatchesManifest(manifest, verification) ||
-    !isRuntimeVerifiedGeneration(verification) ||
-    verification.kind !== "remote" ||
-    verification.provider !== "icloud" ||
-    verification.providerObjectId === null ||
-    verification.providerObjectPath !== getGenerationObjectPath(manifest)
-  ) {
-    return err(new LenaError("integrity_failed", "iCloud verification does not match download"));
-  }
-  return ok(
-    Object.freeze({
-      expectedObjectByteLength: verification.objectByteLength,
-      expectedObjectChecksum: verification.objectChecksum,
-      materializePlaceholder: true as const,
-      providerObjectId: verification.providerObjectId,
-      remotePath: getGenerationObjectPath(manifest),
-      stagingCiphertextUri: uri.value,
-    }),
+  return createTransportDownloadPlan(manifest, verification, "icloud", stagingCiphertextUri).map(
+    (transport) =>
+      Object.freeze({
+        expectedObjectByteLength: transport.expectedObjectByteLength,
+        expectedObjectChecksum: transport.expectedObjectChecksum,
+        materializePlaceholder: true as const,
+        providerObjectId: transport.providerObjectId,
+        remotePath: transport.remotePath,
+        stagingCiphertextUri: transport.stagingCiphertextUri,
+      }),
   );
 }
 
@@ -284,31 +239,27 @@ export function createICloudDeletePlan(
   verification: VerifiedGeneration,
   retention: RetentionPlan,
 ): Result<ICloudDeletePlan, LenaError> {
-  if (
-    !isAuthorizedRetentionPlan(retention) ||
-    retention.vaultId !== manifest.vaultId ||
-    !retention.delete.includes(manifest.generationId) ||
-    !verificationMatchesManifest(manifest, verification) ||
-    !isRuntimeVerifiedGeneration(verification) ||
-    verification.kind !== "remote" ||
-    verification.provider !== "icloud" ||
-    verification.providerObjectId === null ||
-    verification.providerObjectPath !== getGenerationObjectPath(manifest)
-  ) {
-    return err(new LenaError("invalid_state_transition", "iCloud deletion is not authorized"));
-  }
-  const plan = Object.freeze({
-    [iCloudDeletePlanMarker]: true as const,
+  const transport = createTransportDeletePlan(manifest, verification, retention, "icloud");
+  if (transport.isErr()) return err(transport.error);
+  const plan: ICloudDeletePlan = {
+    [iCloudDeletePlanMarker]: transport.value,
     authorizedByRetention: true as const,
-    expectedObjectByteLength: verification.objectByteLength,
-    expectedObjectChecksum: verification.objectChecksum,
-    generationId: manifest.generationId,
-    providerObjectId: verification.providerObjectId,
-    remotePath: getGenerationObjectPath(manifest),
-    vaultId: manifest.vaultId,
+    executionAuthorized: false as const,
+    expectedObjectByteLength: transport.value.expectedObjectByteLength,
+    expectedObjectChecksum: transport.value.expectedObjectChecksum,
+    generationId: transport.value.generationId,
+    provider: "icloud" as const,
+    providerObjectId: transport.value.providerObjectId,
+    remotePath: transport.value.remotePath,
+    vaultId: transport.value.vaultId,
+  };
+  Object.defineProperty(plan, iCloudDeletePlanMarker, {
+    configurable: false,
+    enumerable: false,
+    value: transport.value,
+    writable: false,
   });
-  authorizedICloudDeletePlans.add(plan);
-  return ok(plan);
+  return ok(Object.freeze(plan));
 }
 
 export function classifyICloudFailure(code: ICloudFailureCode): BackupTransportFailure {

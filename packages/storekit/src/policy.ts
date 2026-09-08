@@ -8,20 +8,22 @@ export const storeKitProductIdSchema = z
   .regex(PRODUCT_ID_PATTERN)
   .brand<"StoreKitProductId">();
 export const storeKitProductTypeSchema = z.enum(["auto-renewable-subscription", "non-consumable"]);
+export const storeKitProductPolicySchema = z
+  .strictObject({
+    productId: storeKitProductIdSchema,
+    productType: storeKitProductTypeSchema,
+  })
+  .readonly();
 
 export type StoreKitProductId = z.infer<typeof storeKitProductIdSchema>;
 export type StoreKitProductType = z.infer<typeof storeKitProductTypeSchema>;
-
-export interface StoreKitProductPolicy {
-  readonly productId: StoreKitProductId;
-  readonly productType: StoreKitProductType;
-}
+export type StoreKitProductPolicy = z.infer<typeof storeKitProductPolicySchema>;
 
 export function parseStoreKitProductId(value: unknown): Result<StoreKitProductId, LenaError> {
   const parsed = storeKitProductIdSchema.safeParse(value);
   if (!parsed.success) {
     return err(
-      new LenaError("invalid_input", "StoreKit product identifier is invalid", {
+      new LenaError("invalid_input", {
         boundary: "storekit_product_policy",
       }),
     );
@@ -34,23 +36,13 @@ export function createStoreKitProductPolicy(
   productId: unknown,
   productType: unknown,
 ): Result<StoreKitProductPolicy, LenaError> {
-  const parsed = parseStoreKitProductId(productId);
-  if (parsed.isErr()) {
-    return err(parsed.error);
-  }
-  const parsedProductType = storeKitProductTypeSchema.safeParse(productType);
-  if (!parsedProductType.success) {
+  const parsed = storeKitProductPolicySchema.safeParse({ productId, productType });
+  if (!parsed.success) {
     return err(
-      new LenaError("invalid_input", "StoreKit product type is invalid", {
+      new LenaError("invalid_input", {
         boundary: "storekit_product_policy",
       }),
     );
   }
-
-  return ok(
-    Object.freeze({
-      productId: parsed.value,
-      productType: parsedProductType.data,
-    }),
-  );
+  return ok(parsed.data);
 }

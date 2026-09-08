@@ -35,18 +35,17 @@ import {
   type GoogleDriveResumableCheckpoint,
 } from "../../src/index";
 
-const VAULT_ID = "018f3f5a-1d2c-7abc-8def-0123456789ab";
-const GENERATION_ID = "018f3f5a-1d2c-7abc-8def-2123456789ab";
-const NEWER_GENERATION_ID = "018f3f5a-1d2c-7abc-8def-3123456789ab";
-const CLAIM_ID = "018f3f5a-1d2c-7abc-8def-4123456789ab";
-const SECOND_CLAIM_ID = "018f3f5a-1d2c-7abc-8def-5123456789ab";
+const VAULT_ID = "11111111-1111-4111-8111-111111111111";
+const GENERATION_ID = "22222222-2222-4222-8222-222222222222";
+const NEWER_GENERATION_ID = "33333333-3333-4333-8333-333333333333";
+const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
+const SECOND_CLAIM_ID = "55555555-5555-4555-8555-555555555555";
 const OBJECT_CHECKSUM_TEXT = `sha256:${"b".repeat(64)}`;
 
 function manifest(overrides: Record<string, unknown> = {}): GenerationManifest {
   const parsed = parseGenerationManifest({
     applicationVersion: "1.0.0",
     completedAt: "2026-09-01T08:16:30.000Z",
-    compatibleSchema: { maximum: 1, minimum: 1 },
     createdAt: "2026-09-01T08:15:30.000Z",
     encryption: {
       algorithm: "AES-256-GCM",
@@ -66,6 +65,12 @@ function manifest(overrides: Record<string, unknown> = {}): GenerationManifest {
     },
     reason: "mutation",
     schemaVersion: 1,
+    snapshot: {
+      commitSequence: 1,
+      committedAt: "2026-09-01T08:15:30.000Z",
+      mutationId: "66666666-6666-4666-8666-666666666666",
+      vaultInstanceId: "77777777-7777-4777-8777-777777777777",
+    },
     vaultId: VAULT_ID,
     ...overrides,
   });
@@ -87,6 +92,7 @@ function verificationFixtures(generation = manifest()) {
     localCiphertextUri,
     objectByteLength: 148,
     objectChecksum: checksum.value,
+    snapshot: generation.snapshot,
     verifiedAt: verifiedAt.value,
     vaultId: generation.vaultId,
   });
@@ -113,6 +119,7 @@ function verificationFixtures(generation = manifest()) {
     expectedProviderObjectPath: remotePath,
     expectedVaultId: generation.vaultId,
     receipt: receipt.value,
+    sourceVerification: local.value,
   });
   if (remote.isErr()) throw remote.error;
   return {
@@ -192,7 +199,7 @@ describe("Google Drive transport protocol", () => {
     const attempt = activeUploadAttempt(generation, fixture.local, fixture.claimId);
     const plan = createGoogleDriveImmutableUploadPlan(generation, fixture.local, attempt);
     expect(plan.isOk()).toBe(true);
-    if (plan.isErr()) return;
+    if (plan.isErr()) throw plan.error;
     expect(plan.value.localCiphertextUri).toBe(fixture.localCiphertextUri);
     expect(plan.value.requiredScope).toBe("drive.appdata");
     expect(isAuthorizedGoogleDriveImmutableUploadPlan(plan.value)).toBe(true);
@@ -200,7 +207,7 @@ describe("Google Drive transport protocol", () => {
     expect(
       createGoogleDriveImmutableUploadPlan(generation, fixture.local, {
         ...attempt,
-      } as BackupAttempt).isOk(),
+      }).isOk(),
     ).toBe(false);
     const persistedAttempt = parseBackupAttempt(JSON.parse(JSON.stringify(attempt)));
     if (persistedAttempt.isErr()) throw persistedAttempt.error;
@@ -216,6 +223,7 @@ describe("Google Drive transport protocol", () => {
       generationId: generation.generationId,
       objectByteLength: 148,
       objectChecksum: plan.value.expectedObjectChecksum,
+      snapshot: generation.snapshot,
       verifiedAt: generation.completedAt,
       vaultId: generation.vaultId,
     });
@@ -254,13 +262,9 @@ describe("Google Drive transport protocol", () => {
       requiredScope: "drive.appdata" as const,
     };
     expect(reconcileGoogleDriveUploadConflict(plan, target, fixture.receipt).isOk()).toBe(true);
-    expect(
-      reconcileGoogleDriveUploadConflict(
-        { ...plan } as GoogleDriveImmutableUploadPlan,
-        target,
-        fixture.receipt,
-      ).isOk(),
-    ).toBe(false);
+    expect(reconcileGoogleDriveUploadConflict({ ...plan }, target, fixture.receipt).isOk()).toBe(
+      false,
+    );
     expect(
       reconcileGoogleDriveUploadConflict(
         plan,
@@ -325,12 +329,7 @@ describe("Google Drive transport protocol", () => {
     expect(
       createGoogleDriveResumeUploadPlan(upload, checkpoint(upload, { remotePath: "wrong" })).isOk(),
     ).toBe(false);
-    expect(
-      createGoogleDriveResumeUploadPlan(
-        { ...upload } as GoogleDriveImmutableUploadPlan,
-        checkpoint(upload),
-      ).isOk(),
-    ).toBe(false);
+    expect(createGoogleDriveResumeUploadPlan({ ...upload }, checkpoint(upload)).isOk()).toBe(false);
   });
 
   test("does not resume a checkpoint from another upload", () => {
@@ -377,7 +376,7 @@ describe("Google Drive transport protocol", () => {
     if (retention.isErr()) throw retention.error;
     const deletion = createGoogleDriveDeletePlan(generation, fixture.remote, retention.value);
     expect(deletion.isOk()).toBe(true);
-    if (deletion.isErr()) return;
+    if (deletion.isErr()) throw deletion.error;
     expect(isAuthorizedGoogleDriveDeletePlan(deletion.value)).toBe(true);
     expect(isAuthorizedGoogleDriveDeletePlan({ ...deletion.value })).toBe(false);
     expect(

@@ -69,7 +69,7 @@ export function parseProcessedEffectRecord(
   const structure = processedEffectRecordStructureSchema.safeParse(value);
   if (!structure.success) {
     return err(
-      new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+      new LenaError("invalid_input", {
         boundary: "processed_effect",
       }),
     );
@@ -80,10 +80,10 @@ export function parseProcessedEffectRecord(
 
   const failedField = parsed.error.issues[0]?.path[0];
   if (failedField === "effectKind") {
-    return err(new LenaError("invalid_input", "Invalid processed effect kind"));
+    return err(new LenaError("invalid_input"));
   }
   if (failedField === "processedAt") {
-    return err(new LenaError("invalid_timestamp", "Timestamp must be canonical UTC"));
+    return err(new LenaError("invalid_timestamp"));
   }
   if (
     failedField === "effectId" ||
@@ -98,11 +98,11 @@ export function parseProcessedEffectRecord(
       vaultInstanceId: "VaultInstanceId",
     } as const;
     const kind = kinds[failedField];
-    return err(new LenaError("invalid_identifier", `Invalid ${kind}`, { kind }));
+    return err(new LenaError("invalid_identifier", { kind }));
   }
 
   return err(
-    new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+    new LenaError("invalid_input", {
       boundary: "processed_effect",
     }),
   );
@@ -121,7 +121,7 @@ export function classifyProcessedEffect(
     existing.vaultId !== expected.vaultId ||
     existing.vaultInstanceId !== expected.vaultInstanceId
   ) {
-    return err(new LenaError("conflict", "Processed effect identity conflicts with replay"));
+    return err(new LenaError("conflict"));
   }
 
   return ok(Object.freeze({ record: existing, status: "already-processed" }));

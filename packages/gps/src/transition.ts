@@ -116,7 +116,7 @@ export function parseGpsTransitionPolicy(input: unknown): Result<GpsTransitionPo
   return parsed.success
     ? ok(Object.freeze(parsed.data))
     : err(
-        new LenaError("invalid_input", "GPS transition policy is invalid", {
+        new LenaError("invalid_input", {
           boundary: "gps_transition_policy",
         }),
       );
@@ -163,7 +163,7 @@ export function createGpsManualCorrection(
   const parsed = gpsManualCorrectionInputSchema.safeParse(input);
   if (!parsed.success) {
     return err(
-      new LenaError("invalid_input", "GPS manual correction is invalid", {
+      new LenaError("invalid_input", {
         boundary: "gps_manual_correction",
       }),
     );

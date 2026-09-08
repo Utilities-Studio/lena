@@ -122,7 +122,7 @@ function parseDisclosureVersion(value: unknown): Result<string, LenaError> {
   const parsed = disclosureVersionSchema.safeParse(value);
   if (!parsed.success) {
     return err(
-      new LenaError("invalid_input", "Sync disclosure version is invalid", {
+      new LenaError("invalid_input", {
         boundary: "sync_consent",
       }),
     );
@@ -171,7 +171,7 @@ export function createExplicitHostedSyncConsentGrant(
 ): Result<Extract<SyncConsentEvent, { type: "grant" }>, LenaError> {
   if (input.confirmation !== "explicit") {
     return err(
-      new LenaError("invalid_input", "Hosted Sync consent is not explicit", {
+      new LenaError("invalid_input", {
         boundary: "sync_consent",
       }),
     );
@@ -207,7 +207,7 @@ export function reduceSyncConsent(
   const parsedEvent = syncConsentEventSchema.safeParse(inputEvent);
   if (!parsedEvent.success) {
     return err(
-      new LenaError("invalid_input", "Sync consent event is invalid", {
+      new LenaError("invalid_input", {
         boundary: "sync_consent",
       }),
     );
@@ -224,14 +224,14 @@ export function reduceSyncConsent(
           state.latestRequest.requestedAt === request.requestedAt
           ? ok(state)
           : err(
-              new LenaError("conflict", "Sync request identity was reused", {
+              new LenaError("conflict", {
                 boundary: "sync_consent",
               }),
             );
       }
       if (state.status === "granted") {
         return err(
-          new LenaError("invalid_state_transition", "Sync consent already exists", {
+          new LenaError("invalid_state_transition", {
             boundary: "sync_consent",
           }),
         );
@@ -241,7 +241,7 @@ export function reduceSyncConsent(
         compareIsoTimestamps(request.requestedAt, state.latestRequest.requestedAt) <= 0
       ) {
         return err(
-          new LenaError("conflict", "Sync request is older than current consent state", {
+          new LenaError("conflict", {
             boundary: "sync_consent",
           }),
         );
@@ -264,13 +264,7 @@ export function reduceSyncConsent(
         state.request.disclosureVersion !== event.grant.disclosureVersion ||
         compareIsoTimestamps(event.grant.grantedAt, state.request.requestedAt) < 0
       ) {
-        return err(
-          new LenaError(
-            "invalid_state_transition",
-            "Hosted Sync consent does not match an active request",
-            { boundary: "sync_consent" },
-          ),
-        );
+        return err(new LenaError("invalid_state_transition", { boundary: "sync_consent" }));
       }
 
       return ok(
@@ -290,7 +284,7 @@ export function reduceSyncConsent(
         compareIsoTimestamps(event.decidedAt, state.request.requestedAt) < 0
       ) {
         return err(
-          new LenaError("invalid_state_transition", "Sync decline is invalid", {
+          new LenaError("invalid_state_transition", {
             boundary: "sync_consent",
           }),
         );
@@ -310,14 +304,14 @@ export function reduceSyncConsent(
     .with({ type: "withdraw" }, (event) => {
       if (state.status !== "granted" || state.consent.consentId !== event.consentId) {
         return err(
-          new LenaError("invalid_state_transition", "Sync withdrawal is invalid", {
+          new LenaError("invalid_state_transition", {
             boundary: "sync_consent",
           }),
         );
       }
       if (compareIsoTimestamps(event.withdrawnAt, state.consent.grantedAt) < 0) {
         return err(
-          new LenaError("invalid_state_transition", "Sync withdrawal predates consent", {
+          new LenaError("invalid_state_transition", {
             boundary: "sync_consent",
           }),
         );

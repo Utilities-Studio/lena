@@ -1,16 +1,16 @@
 import {
   err,
   generationIdSchema,
-  isSchemaCompatible,
   isoTimestampSchema,
   LenaError,
+  mutationIdSchema,
   ok,
-  schemaCompatibilityRangeSchema,
   schemaVersionSchema,
   vaultIdSchema,
+  vaultInstanceIdSchema,
   type Result,
 } from "@lena/core";
-import { sortKeys } from "es-toolkit";
+import canonicalize from "canonicalize";
 import { z } from "zod";
 import { sha256ChecksumSchema } from "./checksum";
 
@@ -80,15 +80,25 @@ export const backupPayloadDescriptorSchema = z
 
 export type BackupPayloadDescriptor = z.infer<typeof backupPayloadDescriptorSchema>;
 
+export const backupSnapshotWatermarkSchema = z
+  .strictObject({
+    commitSequence: z.int().min(1).max(Number.MAX_SAFE_INTEGER),
+    committedAt: isoTimestampSchema,
+    mutationId: mutationIdSchema,
+    vaultInstanceId: vaultInstanceIdSchema,
+  })
+  .readonly();
+
+export type BackupSnapshotWatermark = z.infer<typeof backupSnapshotWatermarkSchema>;
+
 /**
  * Version 1 belongs inside the authenticated encrypted generation envelope.
  * Parsing this structure validates claims only. It does not create runtime verification evidence.
  */
-export const generationManifestV1Schema = z
+export const generationManifestSchema = z
   .strictObject({
     applicationVersion: z.string().min(1).max(MAX_APP_VERSION_LENGTH),
     completedAt: isoTimestampSchema,
-    compatibleSchema: schemaCompatibilityRangeSchema,
     createdAt: isoTimestampSchema,
     encryption: backupEncryptionDescriptorSchema,
     formatVersion: z.literal(BACKUP_MANIFEST_FORMAT_VERSION),
@@ -96,7 +106,9 @@ export const generationManifestV1Schema = z
     parentGenerationId: generationIdSchema.nullable(),
     payload: backupPayloadDescriptorSchema,
     reason: backupReasonSchema,
+    /** Unified schema version of the consuming application's complete vault snapshot. */
     schemaVersion: schemaVersionSchema,
+    snapshot: backupSnapshotWatermarkSchema,
     vaultId: vaultIdSchema,
   })
   .superRefine((manifest, context) => {
@@ -107,17 +119,15 @@ export const generationManifestV1Schema = z
         path: ["completedAt"],
       });
     }
-    if (!isSchemaCompatible(manifest.schemaVersion, manifest.compatibleSchema)) {
+    if (manifest.snapshot.committedAt > manifest.completedAt) {
       context.addIssue({
         code: "custom",
-        message: "schema_outside_compatibility_range",
-        path: ["schemaVersion"],
+        message: "snapshot_commit_after_completion",
+        path: ["snapshot", "committedAt"],
       });
     }
   })
   .readonly();
-
-export const generationManifestSchema = generationManifestV1Schema;
 
 export type GenerationManifest = z.infer<typeof generationManifestSchema>;
 
@@ -126,12 +136,12 @@ const manifestVersionSchema = z.object({ formatVersion: z.unknown() });
 export function parseGenerationManifest(value: unknown): Result<GenerationManifest, LenaError> {
   const version = manifestVersionSchema.safeParse(value);
   if (version.success && version.data.formatVersion !== BACKUP_MANIFEST_FORMAT_VERSION) {
-    return err(new LenaError("unsupported", "Unsupported backup manifest format"));
+    return err(new LenaError("unsupported"));
   }
 
   const parsed = generationManifestSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid generation manifest"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);
@@ -147,37 +157,6 @@ export function serializeGenerationManifest(
 ): Result<string, LenaError> {
   const validated = parseGenerationManifest(manifest);
   if (validated.isErr()) return err(validated.error);
-  const value = validated.value;
-  const recordCounts = sortKeys(value.payload.recordCounts);
-
-  return ok(
-    JSON.stringify({
-      applicationVersion: value.applicationVersion,
-      completedAt: value.completedAt,
-      compatibleSchema: {
-        maximum: value.compatibleSchema.maximum,
-        minimum: value.compatibleSchema.minimum,
-      },
-      createdAt: value.createdAt,
-      encryption: {
-        algorithm: value.encryption.algorithm,
-        envelopeVersion: value.encryption.envelopeVersion,
-        nonceByteLength: value.encryption.nonceByteLength,
-        tagByteLength: value.encryption.tagByteLength,
-      },
-      formatVersion: value.formatVersion,
-      generationId: value.generationId,
-      parentGenerationId: value.parentGenerationId,
-      payload: {
-        attachmentByteLength: value.payload.attachmentByteLength,
-        attachmentCount: value.payload.attachmentCount,
-        contentByteLength: value.payload.contentByteLength,
-        contentChecksum: value.payload.contentChecksum,
-        recordCounts,
-      },
-      reason: value.reason,
-      schemaVersion: value.schemaVersion,
-      vaultId: value.vaultId,
-    }),
-  );
+  const serialized = canonicalize(validated.value);
+  return serialized === undefined ? err(new LenaError("invalid_input")) : ok(serialized);
 }

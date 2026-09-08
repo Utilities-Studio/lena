@@ -73,12 +73,7 @@ export interface ModelAvailability {
 
 export const ABSENT_MODEL: AbsentModelState = Object.freeze({ status: "absent" });
 
-const installIdSchema = z
-  .string()
-  .min(1)
-  .max(256)
-  .refine((value) => !hasControlCharacter(value))
-  .transform((value) => value.normalize("NFC"));
+const installIdSchema = z.uuidv4();
 const sha256Schema = z
   .string()
   .transform((value) => value.toLowerCase())
@@ -122,7 +117,7 @@ export function transitionModelLifecycle(
   const parsedEvent = modelLifecycleEventSchema.safeParse(inputEvent);
   if (!parsedEvent.success) {
     return err(
-      new LenaError("invalid_input", "Model lifecycle event is invalid", {
+      new LenaError("invalid_input", {
         boundary: "model_lifecycle",
       }),
     );
@@ -151,7 +146,7 @@ export function transitionModelLifecycle(
         event.downloadedBytes < state.downloadedBytes ||
         event.downloadedBytes > state.manifest.artifact.byteLength
       ) {
-        return err(new LenaError("invalid_input", "Download checkpoint is invalid"));
+        return err(new LenaError("invalid_input", { boundary: "model_lifecycle" }));
       }
       return ok(Object.freeze({ ...state, downloadedBytes: event.downloadedBytes }));
     })
@@ -161,7 +156,7 @@ export function transitionModelLifecycle(
       if (matching.isErr()) return err(matching.error);
       if (state.downloadedBytes !== state.manifest.artifact.byteLength) {
         return err(
-          new LenaError("invalid_state_transition", "Model download is incomplete", {
+          new LenaError("invalid_state_transition", {
             downloadedBytes: state.downloadedBytes,
             expectedBytes: state.manifest.artifact.byteLength,
           }),
@@ -182,7 +177,7 @@ export function transitionModelLifecycle(
       const actualSha256 = parseSha256(event.actualSha256);
       if (actualSha256.isErr()) return err(actualSha256.error);
       if (!Number.isSafeInteger(event.actualByteLength) || event.actualByteLength < 0) {
-        return err(new LenaError("invalid_input", "Verified byte length is invalid"));
+        return err(new LenaError("invalid_input", { boundary: "model_lifecycle" }));
       }
       if (
         event.actualByteLength !== state.manifest.artifact.byteLength ||
@@ -261,10 +256,10 @@ export function transitionModelLifecycle(
       if (matching.isErr()) return err(matching.error);
       if (state.artifactDisposition === "discard_required") {
         return err(
-          new LenaError(
-            "invalid_state_transition",
-            "Failed model artifact must be discarded before retry",
-          ),
+          new LenaError("invalid_state_transition", {
+            boundary: "model_lifecycle",
+            reason: "discard_required",
+          }),
         );
       }
       if (state.retryFrom === "download") {
@@ -377,17 +372,9 @@ function createFailedState(
 function parseInstallId(value: unknown): Result<string, LenaError> {
   const parsed = installIdSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_identifier", "Model install id is invalid"));
+    return err(new LenaError("invalid_identifier", { boundary: "model_install_id" }));
   }
   return ok(parsed.data);
-}
-
-function hasControlCharacter(value: string): boolean {
-  for (const character of value) {
-    const codePoint = character.codePointAt(0);
-    if (codePoint !== undefined && (codePoint <= 31 || codePoint === 127)) return true;
-  }
-  return false;
 }
 
 function requireInstallId(activeInstallId: string, input: unknown): Result<true, LenaError> {
@@ -396,7 +383,7 @@ function requireInstallId(activeInstallId: string, input: unknown): Result<true,
   return installId.value === activeInstallId
     ? ok(true)
     : err(
-        new LenaError("conflict", "Model event belongs to another installation", {
+        new LenaError("conflict", {
           boundary: "model_lifecycle",
         }),
       );
@@ -405,7 +392,7 @@ function requireInstallId(activeInstallId: string, input: unknown): Result<true,
 function parseSha256(value: unknown): Result<string, LenaError> {
   const parsed = sha256Schema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Verified hash is invalid"));
+    return err(new LenaError("invalid_input", { boundary: "model_sha256" }));
   }
   return ok(parsed.data);
 }
@@ -415,7 +402,7 @@ function invalidTransition(
   event: ModelLifecycleEvent["type"],
 ): Result<never, LenaError> {
   return err(
-    new LenaError("invalid_state_transition", "Invalid model lifecycle transition", {
+    new LenaError("invalid_state_transition", {
       event,
       state: state.status,
     }),

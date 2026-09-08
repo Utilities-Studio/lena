@@ -82,7 +82,7 @@ export function reduceStoreKitPurchase(
       return failure.success
         ? ok(Object.freeze({ failure: failure.data, status: "failed" as const }))
         : err(
-            new LenaError("invalid_input", "StoreKit purchase failure is invalid", {
+            new LenaError("invalid_input", {
               boundary: "storekit_purchase",
             }),
           );
@@ -94,20 +94,14 @@ export function reduceStoreKitPurchase(
           !isVerifiedStoreKitEntitlementFact(completedEvent.fact) ||
           !activeFactAt(completedEvent.fact, policy, completedEvent.fact.observedAt)
         ) {
-          return err(
-            new LenaError(
-              "authentication_required",
-              "Completed purchase has no current verified entitlement",
-              { boundary: "storekit_purchase" },
-            ),
-          );
+          return err(new LenaError("authentication_required", { boundary: "storekit_purchase" }));
         }
         return ok(Object.freeze({ fact: completedEvent.fact, status: "purchased" as const }));
       },
     )
     .otherwise(([currentState, currentEvent]) =>
       err(
-        new LenaError("invalid_state_transition", "Invalid purchase transition", {
+        new LenaError("invalid_state_transition", {
           boundary: "storekit_purchase",
           event: currentEvent.type,
           state: currentState.status,
@@ -155,7 +149,7 @@ export function reduceStoreKitRestore(
       return failure.success
         ? ok(Object.freeze({ failure: failure.data, status: "failed" as const }))
         : err(
-            new LenaError("invalid_input", "StoreKit restore failure is invalid", {
+            new LenaError("invalid_input", {
               boundary: "storekit_restore",
             }),
           );
@@ -167,7 +161,7 @@ export function reduceStoreKitRestore(
       }
       if (completedEvent.facts.some((fact) => !isVerifiedStoreKitEntitlementFact(fact))) {
         return err(
-          new LenaError("authentication_required", "Restore contains an unverified StoreKit fact", {
+          new LenaError("authentication_required", {
             boundary: "storekit_restore",
           }),
         );
@@ -176,7 +170,7 @@ export function reduceStoreKitRestore(
         uniqBy(completedEvent.facts, (fact) => fact.sequence).length !== completedEvent.facts.length
       ) {
         return err(
-          new LenaError("conflict", "Restore contains duplicate StoreKit sequences", {
+          new LenaError("conflict", {
             boundary: "storekit_restore",
           }),
         );
@@ -191,7 +185,7 @@ export function reduceStoreKitRestore(
     })
     .otherwise(([currentState, currentEvent]) =>
       err(
-        new LenaError("invalid_state_transition", "Invalid restore transition", {
+        new LenaError("invalid_state_transition", {
           boundary: "storekit_restore",
           event: currentEvent.type,
           state: currentState.status,

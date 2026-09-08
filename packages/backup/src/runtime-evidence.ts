@@ -1,4 +1,5 @@
 import {
+  compareIsoTimestamps,
   err,
   LenaError,
   ok,
@@ -9,6 +10,7 @@ import {
   type VaultId,
 } from "@lena/core";
 import { parseSha256Checksum, type Sha256Checksum } from "./checksum";
+import { backupSnapshotWatermarkSchema, type BackupSnapshotWatermark } from "./manifest";
 
 export type RemoteBackupProvider = "google-drive" | "icloud";
 
@@ -24,7 +26,7 @@ export interface RemoteObjectReceiptInput {
   readonly vaultId: VaultId;
 }
 
-declare const remoteObjectReceiptBrand: unique symbol;
+const remoteObjectReceiptBrand: unique symbol = Symbol("RemoteObjectReceipt");
 
 export type RemoteObjectReceipt = Readonly<
   RemoteObjectReceiptInput & {
@@ -38,11 +40,12 @@ export interface LocalVerifiedGenerationInput {
   readonly generationId: GenerationId;
   readonly objectByteLength: number;
   readonly objectChecksum: Sha256Checksum;
+  readonly snapshot: BackupSnapshotWatermark;
   readonly verifiedAt: IsoTimestamp;
   readonly vaultId: VaultId;
 }
 
-declare const verifiedGenerationBrand: unique symbol;
+const verifiedGenerationBrand: unique symbol = Symbol("VerifiedGeneration");
 
 export interface GenerationVerificationFields {
   readonly claimId: EffectId | null;
@@ -53,6 +56,7 @@ export interface GenerationVerificationFields {
   readonly provider: RemoteBackupProvider | null;
   readonly providerObjectId: string | null;
   readonly providerObjectPath: string | null;
+  readonly snapshot: BackupSnapshotWatermark;
   readonly verifiedAt: IsoTimestamp;
   readonly vaultId: VaultId;
 }
@@ -63,15 +67,17 @@ export type VerifiedGeneration = Readonly<
   }
 >;
 
-const runtimeRemoteReceipts = new WeakSet<object>();
-const runtimeVerifiedGenerations = new WeakSet<object>();
-const localCiphertextUris = new WeakMap<object, string>();
+const runtimeRemoteReceiptBindings = new WeakMap<object, RemoteObjectReceiptInput>();
+const runtimeVerifiedGenerationBindings = new WeakMap<
+  object,
+  Readonly<{ localCiphertextUri: string | null }>
+>();
 
 function parseObjectByteLength(value: unknown): Result<number, LenaError> {
-  if (!Number.isSafeInteger(value) || (value as number) < 0) {
-    return err(new LenaError("invalid_input", "Invalid verified object byte length"));
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    return err(new LenaError("invalid_input"));
   }
-  return ok(value as number);
+  return ok(value);
 }
 
 function parseProviderObjectValue(
@@ -85,7 +91,7 @@ function parseProviderObjectValue(
     value.length > maximum ||
     /[\r\n]/.test(value)
   ) {
-    return err(new LenaError("invalid_input", `Invalid provider object ${boundary}`));
+    return err(new LenaError("invalid_input"));
   }
   return ok(value);
 }
@@ -97,7 +103,7 @@ function parseLocalCiphertextUri(value: unknown): Result<string, LenaError> {
     value.length > 2_048 ||
     /[\r\n]/.test(value)
   ) {
-    return err(new LenaError("invalid_input", "Invalid local ciphertext URI"));
+    return err(new LenaError("invalid_input"));
   }
   return ok(value);
 }
@@ -115,8 +121,16 @@ export function createRuntimeLocalVerifiedGeneration(
   if (objectChecksum.isErr()) return err(objectChecksum.error);
   const localCiphertextUri = parseLocalCiphertextUri(input.localCiphertextUri);
   if (localCiphertextUri.isErr()) return err(localCiphertextUri.error);
+  const snapshot = backupSnapshotWatermarkSchema.safeParse(input.snapshot);
+  if (!snapshot.success) {
+    return err(new LenaError("invalid_input"));
+  }
+  if (compareIsoTimestamps(input.verifiedAt, snapshot.data.committedAt) < 0) {
+    return err(new LenaError("invalid_timestamp"));
+  }
 
-  const verification = Object.freeze({
+  const verificationFields: VerifiedGeneration = {
+    [verifiedGenerationBrand]: "VerifiedGeneration",
     claimId: null,
     generationId: input.generationId,
     kind: "local" as const,
@@ -125,11 +139,15 @@ export function createRuntimeLocalVerifiedGeneration(
     provider: null,
     providerObjectId: null,
     providerObjectPath: null,
+    snapshot: snapshot.data,
     verifiedAt: input.verifiedAt,
     vaultId: input.vaultId,
-  }) as VerifiedGeneration;
-  runtimeVerifiedGenerations.add(verification);
-  localCiphertextUris.set(verification, localCiphertextUri.value);
+  };
+  const verification = Object.freeze(verificationFields);
+  runtimeVerifiedGenerationBindings.set(
+    verification,
+    Object.freeze({ localCiphertextUri: localCiphertextUri.value }),
+  );
   return ok(verification);
 }
 
@@ -149,14 +167,16 @@ export function createRuntimeRemoteObjectReceipt(
   const providerObjectPath = parseProviderObjectValue(input.providerObjectPath, "path");
   if (providerObjectPath.isErr()) return err(providerObjectPath.error);
 
-  const receipt = Object.freeze({
+  const receiptFields: RemoteObjectReceipt = {
+    [remoteObjectReceiptBrand]: "RemoteObjectReceipt",
     ...input,
     objectByteLength: objectByteLength.value,
     objectChecksum: objectChecksum.value,
     providerObjectId: providerObjectId.value,
     providerObjectPath: providerObjectPath.value,
-  }) as RemoteObjectReceipt;
-  runtimeRemoteReceipts.add(receipt);
+  };
+  const receipt = Object.freeze(receiptFields);
+  runtimeRemoteReceiptBindings.set(receipt, input);
   return ok(receipt);
 }
 
@@ -170,9 +190,10 @@ export function createRuntimeRemoteVerifiedGeneration(input: {
   readonly expectedProviderObjectPath: string;
   readonly expectedVaultId: VaultId;
   readonly receipt: RemoteObjectReceipt;
+  readonly sourceVerification: VerifiedGeneration;
 }): Result<VerifiedGeneration, LenaError> {
   if (!isRuntimeRemoteObjectReceipt(input.receipt)) {
-    return err(new LenaError("integrity_failed", "Remote receipt lacks runtime verification"));
+    return err(new LenaError("integrity_failed"));
   }
   const expectedObjectByteLength = parseObjectByteLength(input.expectedObjectByteLength);
   if (expectedObjectByteLength.isErr()) return err(expectedObjectByteLength.error);
@@ -185,6 +206,12 @@ export function createRuntimeRemoteVerifiedGeneration(input: {
   if (expectedProviderObjectPath.isErr()) return err(expectedProviderObjectPath.error);
 
   if (
+    !isRuntimeVerifiedGeneration(input.sourceVerification) ||
+    input.sourceVerification.kind !== "local" ||
+    input.sourceVerification.generationId !== input.expectedGenerationId ||
+    input.sourceVerification.vaultId !== input.expectedVaultId ||
+    input.sourceVerification.objectByteLength !== expectedObjectByteLength.value ||
+    input.sourceVerification.objectChecksum !== input.expectedObjectChecksum ||
     input.receipt.claimId !== input.activeClaimId ||
     input.receipt.objectByteLength !== expectedObjectByteLength.value ||
     input.receipt.objectChecksum !== input.expectedObjectChecksum ||
@@ -194,12 +221,11 @@ export function createRuntimeRemoteVerifiedGeneration(input: {
     input.receipt.providerObjectPath !== expectedProviderObjectPath.value ||
     input.receipt.vaultId !== input.expectedVaultId
   ) {
-    return err(
-      new LenaError("integrity_failed", "Remote receipt does not match the uploaded generation"),
-    );
+    return err(new LenaError("integrity_failed"));
   }
 
-  const verification = Object.freeze({
+  const verificationFields: VerifiedGeneration = {
+    [verifiedGenerationBrand]: "VerifiedGeneration",
     claimId: input.receipt.claimId,
     generationId: input.receipt.generationId,
     kind: "remote" as const,
@@ -208,22 +234,26 @@ export function createRuntimeRemoteVerifiedGeneration(input: {
     provider: input.receipt.provider,
     providerObjectId: input.receipt.providerObjectId,
     providerObjectPath: input.receipt.providerObjectPath,
+    snapshot: input.sourceVerification.snapshot,
     verifiedAt: input.receipt.verifiedAt,
     vaultId: input.receipt.vaultId,
-  }) as VerifiedGeneration;
-  runtimeVerifiedGenerations.add(verification);
+  };
+  const verification = Object.freeze(verificationFields);
+  runtimeVerifiedGenerationBindings.set(verification, Object.freeze({ localCiphertextUri: null }));
   return ok(verification);
 }
 
 export function isRuntimeRemoteObjectReceipt(value: unknown): value is RemoteObjectReceipt {
-  return typeof value === "object" && value !== null && runtimeRemoteReceipts.has(value);
+  return typeof value === "object" && value !== null && runtimeRemoteReceiptBindings.has(value);
 }
 
 export function isRuntimeVerifiedGeneration(value: unknown): value is VerifiedGeneration {
-  return typeof value === "object" && value !== null && runtimeVerifiedGenerations.has(value);
+  return (
+    typeof value === "object" && value !== null && runtimeVerifiedGenerationBindings.has(value)
+  );
 }
 
 export function getRuntimeLocalCiphertextUri(verification: VerifiedGeneration): string | null {
   if (!isRuntimeVerifiedGeneration(verification) || verification.kind !== "local") return null;
-  return localCiphertextUris.get(verification) ?? null;
+  return runtimeVerifiedGenerationBindings.get(verification)?.localCiphertextUri ?? null;
 }

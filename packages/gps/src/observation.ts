@@ -13,7 +13,7 @@ import {
 } from "./resolver";
 
 export const gpsAccuracyPolicySchema = z
-  .object({
+  .strictObject({
     preciseMaximumMeters: z.number().min(0).max(100_000),
     usableMaximumMeters: z.number().min(0).max(100_000),
   })
@@ -28,11 +28,7 @@ export type GpsAccuracyPolicy = z.output<typeof gpsAccuracyPolicySchema>;
 export function parseGpsAccuracyPolicy(input: unknown): Result<GpsAccuracyPolicy, LenaError> {
   const parsed = gpsAccuracyPolicySchema.safeParse(input);
   if (!parsed.success) {
-    return err(
-      new LenaError("invalid_input", "GPS accuracy policy is invalid", {
-        boundary: "gps_accuracy_policy",
-      }),
-    );
+    return err(new LenaError("invalid_input", { boundary: "gps_accuracy_policy" }));
   }
 
   return ok(Object.freeze(parsed.data));
@@ -58,11 +54,7 @@ export function createPersistableCountryObservation(
   }
 
   if (!isCountryResolutionForSample(input.resolution, input.sample)) {
-    return err(
-      new LenaError("authentication_required", "Country resolution is not resolver-authenticated", {
-        boundary: "gps_country_observation",
-      }),
-    );
+    return err(new LenaError("authentication_required", { boundary: "gps_country_observation" }));
   }
 
   if (input.sample.horizontalAccuracyMeters > input.accuracyPolicy.usableMaximumMeters) {

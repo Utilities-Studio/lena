@@ -1,15 +1,24 @@
 import {
-  getGenerationObjectPath,
-  getRuntimeLocalCiphertextUri,
-  isAuthorizedRetentionPlan,
-  isRuntimeClaimedBackupAttempt,
-  isRuntimeRemoteObjectReceipt,
-  isRuntimeVerifiedGeneration,
+  createImmutableTransportUploadPlan,
+  createTransportDeletePlan,
+  createTransportDownloadPlan,
+  createTransportListPlan,
+  immutableTransportDeletePlanSchema,
+  immutableTransportUploadPlanSchema,
+  isAuthorizedImmutableTransportDeletePlan,
+  isAuthorizedImmutableTransportUploadPlan,
+  reconcileImmutableTransportConflict,
   sha256ChecksumSchema,
+  transportCiphertextUriSchema,
+  transportContinuationTokenSchema,
+  transportProviderObjectIdSchema,
+  transportRemotePathSchema,
   transportFailure,
   type BackupTransportFailure,
   type BackupAttempt,
   type GenerationManifest,
+  type ImmutableTransportDeletePlan,
+  type ImmutableTransportUploadPlan,
   type RemoteObjectReceipt,
   type RetentionPlan,
   type VerifiedGeneration,
@@ -29,20 +38,22 @@ import {
 import { match } from "ts-pattern";
 import { z } from "zod";
 
+export * from "./cloud-storage-read-runtime";
+
 const googleDriveUploadPlanMarker = Symbol("lena.google-drive-upload-plan");
 const googleDriveDeletePlanMarker = Symbol("lena.google-drive-delete-plan");
-const authorizedGoogleDriveUploadPlans = new WeakSet<object>();
-const authorizedGoogleDriveDeletePlans = new WeakSet<object>();
 
 export type GoogleDriveImmutableUploadPlan = Readonly<{
-  readonly [googleDriveUploadPlanMarker]: true;
+  readonly [googleDriveUploadPlanMarker]: ImmutableTransportUploadPlan;
   readonly claimId: EffectId;
   readonly conflictBehavior: "verify-existing-exact-object";
+  readonly executionAuthorized: false;
   readonly expectedObjectByteLength: number;
   readonly expectedObjectChecksum: VerifiedGeneration["objectChecksum"];
   readonly folder: "appDataFolder";
   readonly generationId: GenerationId;
   readonly localCiphertextUri: string;
+  readonly provider: "google-drive";
   readonly remotePath: string;
   readonly requiredScope: "drive.appdata";
   readonly resumable: true;
@@ -72,44 +83,44 @@ export interface GoogleDriveDownloadPlan extends GoogleDriveExactObjectPlan {
 
 export type GoogleDriveDeletePlan = Readonly<
   GoogleDriveExactObjectPlan & {
-    readonly [googleDriveDeletePlanMarker]: true;
+    readonly [googleDriveDeletePlanMarker]: ImmutableTransportDeletePlan;
     readonly authorizedByRetention: true;
+    readonly executionAuthorized: false;
     readonly expectedObjectByteLength: number;
     readonly expectedObjectChecksum: VerifiedGeneration["objectChecksum"];
     readonly generationId: VerifiedGeneration["generationId"];
+    readonly provider: "google-drive";
     readonly vaultId: VaultId;
   }
 >;
 
-export interface GoogleDriveConflictTarget extends GoogleDriveExactObjectPlan {
-  readonly remotePath: string;
-}
+const googleDriveObjectByteLengthSchema = z.int().nonnegative();
 
-const googleDriveObjectByteLengthSchema = z.number().int().refine(Number.isSafeInteger).min(0);
-
-export const googleDrivePageTokenSchema = z
-  .string()
-  .max(1_024)
-  .refine((value) => value.trim().length > 0);
-
-export const googleDriveProviderObjectIdSchema = z
-  .string()
-  .max(512)
-  .refine((value) => value.trim().length > 0 && !/[\r\n]/.test(value));
-
-export const googleDriveCiphertextUriSchema = z
-  .string()
-  .max(2_048)
-  .refine((value) => value.trim().length > 0 && !/[\r\n]/.test(value));
-
-const googleDriveRemotePathSchema = z
-  .string()
-  .max(1_024)
-  .refine((value) => value.trim().length > 0 && !/[\r\n]/.test(value));
+export const googleDrivePageTokenSchema = transportContinuationTokenSchema;
+export const googleDriveProviderObjectIdSchema = transportProviderObjectIdSchema;
+export const googleDriveCiphertextUriSchema = transportCiphertextUriSchema;
+const googleDriveRemotePathSchema = transportRemotePathSchema;
+export const googleDriveImmutableUploadRequestSchema = immutableTransportUploadPlanSchema
+  .unwrap()
+  .extend({
+    folder: z.literal("appDataFolder"),
+    provider: z.literal("google-drive"),
+    requiredScope: z.literal("drive.appdata"),
+    resumable: z.literal(true),
+  })
+  .readonly();
+export const googleDriveDeleteRequestSchema = immutableTransportDeletePlanSchema
+  .unwrap()
+  .extend({
+    folder: z.literal("appDataFolder"),
+    provider: z.literal("google-drive"),
+    requiredScope: z.literal("drive.appdata"),
+  })
+  .readonly();
 
 export const googleDriveListInputSchema = z
   .strictObject({
-    pageSize: z.number().int().refine(Number.isSafeInteger).min(1).max(1_000).optional(),
+    pageSize: z.int().min(1).max(1_000).optional(),
     pageToken: googleDrivePageTokenSchema.nullable().optional(),
   })
   .readonly();
@@ -122,6 +133,8 @@ export const googleDriveConflictTargetSchema = z
     requiredScope: z.literal("drive.appdata"),
   })
   .readonly();
+
+export type GoogleDriveConflictTarget = z.infer<typeof googleDriveConflictTargetSchema>;
 
 export const googleDriveResumableCheckpointSchema = z
   .strictObject({
@@ -170,21 +183,26 @@ export const googleDriveFailureCodeSchema = z.enum([
 
 export type GoogleDriveFailureCode = z.infer<typeof googleDriveFailureCodeSchema>;
 
-function validateUri(value: string, boundary: string): Result<string, LenaError> {
-  const parsed = googleDriveCiphertextUriSchema.safeParse(value);
-  if (!parsed.success) {
-    return err(new LenaError("invalid_input", `Invalid ${boundary} URI`));
-  }
-  return ok(parsed.data);
+function transportUploadPlan(value: unknown): ImmutableTransportUploadPlan | null {
+  if (typeof value !== "object" || value === null) return null;
+  const transport = (value as { readonly [googleDriveUploadPlanMarker]?: unknown })[
+    googleDriveUploadPlanMarker
+  ];
+  return isAuthorizedImmutableTransportUploadPlan(transport) &&
+    transport.provider === "google-drive"
+    ? transport
+    : null;
 }
 
-function verificationMatchesManifest(
-  manifest: GenerationManifest,
-  verification: VerifiedGeneration,
-): boolean {
-  return (
-    verification.generationId === manifest.generationId && verification.vaultId === manifest.vaultId
-  );
+function transportDeletePlan(value: unknown): ImmutableTransportDeletePlan | null {
+  if (typeof value !== "object" || value === null) return null;
+  const transport = (value as { readonly [googleDriveDeletePlanMarker]?: unknown })[
+    googleDriveDeletePlanMarker
+  ];
+  return isAuthorizedImmutableTransportDeletePlan(transport) &&
+    transport.provider === "google-drive"
+    ? transport
+    : null;
 }
 
 export function createGoogleDriveImmutableUploadPlan(
@@ -192,64 +210,46 @@ export function createGoogleDriveImmutableUploadPlan(
   verification: VerifiedGeneration,
   attempt: BackupAttempt,
 ): Result<GoogleDriveImmutableUploadPlan, LenaError> {
-  const localCiphertextUri = getRuntimeLocalCiphertextUri(verification);
-  if (
-    !isRuntimeVerifiedGeneration(verification) ||
-    verification.kind !== "local" ||
-    verification.provider !== null ||
-    verification.providerObjectId !== null ||
-    verification.providerObjectPath !== null ||
-    localCiphertextUri === null ||
-    !verificationMatchesManifest(manifest, verification) ||
-    !isRuntimeClaimedBackupAttempt(attempt) ||
-    attempt.state !== "uploading" ||
-    attempt.provider !== "google-drive" ||
-    attempt.vaultId !== manifest.vaultId ||
-    attempt.generationId !== manifest.generationId ||
-    attempt.objectByteLength !== verification.objectByteLength ||
-    attempt.objectChecksum !== verification.objectChecksum
-  ) {
-    return err(new LenaError("integrity_failed", "Verified object and manifest do not match"));
-  }
-
-  const plan = Object.freeze({
-    [googleDriveUploadPlanMarker]: true as const,
-    claimId: attempt.claimId,
-    conflictBehavior: "verify-existing-exact-object" as const,
-    expectedObjectByteLength: verification.objectByteLength,
-    expectedObjectChecksum: verification.objectChecksum,
+  const transport = createImmutableTransportUploadPlan(
+    manifest,
+    verification,
+    attempt,
+    "google-drive",
+  );
+  if (transport.isErr()) return err(transport.error);
+  const plan: GoogleDriveImmutableUploadPlan = {
+    [googleDriveUploadPlanMarker]: transport.value,
+    claimId: transport.value.claimId,
+    conflictBehavior: transport.value.conflictBehavior,
+    executionAuthorized: false as const,
+    expectedObjectByteLength: transport.value.expectedObjectByteLength,
+    expectedObjectChecksum: transport.value.expectedObjectChecksum,
     folder: "appDataFolder" as const,
-    generationId: manifest.generationId,
-    localCiphertextUri,
-    remotePath: getGenerationObjectPath(manifest),
+    generationId: transport.value.generationId,
+    localCiphertextUri: transport.value.localCiphertextUri,
+    provider: "google-drive" as const,
+    remotePath: transport.value.remotePath,
     requiredScope: "drive.appdata" as const,
     resumable: true as const,
-    vaultId: manifest.vaultId,
+    vaultId: transport.value.vaultId,
+  };
+  Object.defineProperty(plan, googleDriveUploadPlanMarker, {
+    configurable: false,
+    enumerable: false,
+    value: transport.value,
+    writable: false,
   });
-  authorizedGoogleDriveUploadPlans.add(plan);
-  return ok(plan);
+  return ok(Object.freeze(plan));
 }
 
 export function isAuthorizedGoogleDriveImmutableUploadPlan(
   value: unknown,
 ): value is GoogleDriveImmutableUploadPlan {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { readonly [googleDriveUploadPlanMarker]?: unknown })[googleDriveUploadPlanMarker] ===
-      true &&
-    authorizedGoogleDriveUploadPlans.has(value)
-  );
+  return transportUploadPlan(value) !== null;
 }
 
 export function isAuthorizedGoogleDriveDeletePlan(value: unknown): value is GoogleDriveDeletePlan {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { readonly [googleDriveDeletePlanMarker]?: unknown })[googleDriveDeletePlanMarker] ===
-      true &&
-    authorizedGoogleDriveDeletePlans.has(value)
-  );
+  return transportDeletePlan(value) !== null;
 }
 
 export function createGoogleDriveListPlan(
@@ -258,17 +258,17 @@ export function createGoogleDriveListPlan(
 ): Result<GoogleDriveListPlan, LenaError> {
   const parsedInput = googleDriveListInputSchema.safeParse(input);
   if (!parsedInput.success) {
-    return err(new LenaError("invalid_input", "Invalid Google Drive list input"));
+    return err(new LenaError("invalid_input"));
   }
   const pageSize = parsedInput.data.pageSize ?? 100;
   const pageToken = parsedInput.data.pageToken ?? null;
-  return ok(
+  return createTransportListPlan(vaultId, "google-drive", pageToken).map((transport) =>
     Object.freeze({
       folder: "appDataFolder" as const,
       pageSize,
-      pageToken,
-      prefix: `vaults/${vaultId}/generations/`,
-      readOnly: true as const,
+      pageToken: transport.continuationToken,
+      prefix: transport.prefix,
+      readOnly: transport.readOnly,
       requiredScope: "drive.appdata" as const,
     }),
   );
@@ -278,16 +278,15 @@ export function createGoogleDriveInspectPlan(
   providerObjectId: string,
 ): Result<GoogleDriveExactObjectPlan, LenaError> {
   const parsedObjectId = googleDriveProviderObjectIdSchema.safeParse(providerObjectId);
-  if (!parsedObjectId.success) {
-    return err(new LenaError("invalid_input", "Invalid Google Drive object id"));
-  }
-  return ok(
-    Object.freeze({
-      folder: "appDataFolder" as const,
-      providerObjectId: parsedObjectId.data,
-      requiredScope: "drive.appdata" as const,
-    }),
-  );
+  return parsedObjectId.success
+    ? ok(
+        Object.freeze({
+          folder: "appDataFolder" as const,
+          providerObjectId: parsedObjectId.data,
+          requiredScope: "drive.appdata" as const,
+        }),
+      )
+    : err(new LenaError("invalid_input"));
 }
 
 export function reconcileGoogleDriveUploadConflict(
@@ -296,25 +295,16 @@ export function reconcileGoogleDriveUploadConflict(
   receipt: RemoteObjectReceipt,
 ): Result<RemoteObjectReceipt, LenaError> {
   const parsedTarget = googleDriveConflictTargetSchema.safeParse(target);
-  if (
-    !parsedTarget.success ||
-    !isAuthorizedGoogleDriveImmutableUploadPlan(plan) ||
-    !isRuntimeRemoteObjectReceipt(receipt) ||
-    parsedTarget.data.remotePath !== plan.remotePath ||
-    parsedTarget.data.providerObjectId !== receipt.providerObjectId ||
-    receipt.claimId !== plan.claimId ||
-    receipt.provider !== "google-drive" ||
-    receipt.vaultId !== plan.vaultId ||
-    receipt.generationId !== plan.generationId ||
-    receipt.providerObjectPath !== plan.remotePath ||
-    receipt.objectByteLength !== plan.expectedObjectByteLength ||
-    receipt.objectChecksum !== plan.expectedObjectChecksum
-  ) {
-    return err(
-      new LenaError("conflict", "Existing Google Drive object is not the expected generation"),
-    );
-  }
-  return ok(receipt);
+  const transport = transportUploadPlan(plan);
+  if (!parsedTarget.success || transport === null) return err(new LenaError("conflict"));
+  return reconcileImmutableTransportConflict(
+    transport,
+    {
+      providerObjectId: parsedTarget.data.providerObjectId,
+      remotePath: parsedTarget.data.remotePath,
+    },
+    receipt,
+  );
 }
 
 export function createGoogleDriveDownloadPlan(
@@ -322,28 +312,19 @@ export function createGoogleDriveDownloadPlan(
   verification: VerifiedGeneration,
   stagingCiphertextUri: string,
 ): Result<GoogleDriveDownloadPlan, LenaError> {
-  const uri = validateUri(stagingCiphertextUri, "staging ciphertext");
-  if (uri.isErr()) return err(uri.error);
-  if (
-    !verificationMatchesManifest(manifest, verification) ||
-    !isRuntimeVerifiedGeneration(verification) ||
-    verification.kind !== "remote" ||
-    verification.provider !== "google-drive" ||
-    verification.providerObjectId === null ||
-    verification.providerObjectPath !== getGenerationObjectPath(manifest)
-  ) {
-    return err(
-      new LenaError("integrity_failed", "Google Drive verification does not match download"),
-    );
-  }
-  return ok(
+  return createTransportDownloadPlan(
+    manifest,
+    verification,
+    "google-drive",
+    stagingCiphertextUri,
+  ).map((transport) =>
     Object.freeze({
-      expectedObjectByteLength: verification.objectByteLength,
-      expectedObjectChecksum: verification.objectChecksum,
+      expectedObjectByteLength: transport.expectedObjectByteLength,
+      expectedObjectChecksum: transport.expectedObjectChecksum,
       folder: "appDataFolder" as const,
-      providerObjectId: verification.providerObjectId,
+      providerObjectId: transport.providerObjectId,
       requiredScope: "drive.appdata" as const,
-      stagingCiphertextUri: uri.value,
+      stagingCiphertextUri: transport.stagingCiphertextUri,
     }),
   );
 }
@@ -353,34 +334,28 @@ export function createGoogleDriveDeletePlan(
   verification: VerifiedGeneration,
   retention: RetentionPlan,
 ): Result<GoogleDriveDeletePlan, LenaError> {
-  if (
-    !isAuthorizedRetentionPlan(retention) ||
-    retention.vaultId !== manifest.vaultId ||
-    !retention.delete.includes(manifest.generationId) ||
-    !verificationMatchesManifest(manifest, verification) ||
-    !isRuntimeVerifiedGeneration(verification) ||
-    verification.kind !== "remote" ||
-    verification.provider !== "google-drive" ||
-    verification.providerObjectId === null ||
-    verification.providerObjectPath !== getGenerationObjectPath(manifest)
-  ) {
-    return err(
-      new LenaError("invalid_state_transition", "Google Drive deletion is not authorized"),
-    );
-  }
-  const plan = Object.freeze({
-    [googleDriveDeletePlanMarker]: true as const,
+  const transport = createTransportDeletePlan(manifest, verification, retention, "google-drive");
+  if (transport.isErr()) return err(transport.error);
+  const plan: GoogleDriveDeletePlan = {
+    [googleDriveDeletePlanMarker]: transport.value,
     authorizedByRetention: true as const,
-    expectedObjectByteLength: verification.objectByteLength,
-    expectedObjectChecksum: verification.objectChecksum,
+    executionAuthorized: false as const,
+    expectedObjectByteLength: transport.value.expectedObjectByteLength,
+    expectedObjectChecksum: transport.value.expectedObjectChecksum,
     folder: "appDataFolder" as const,
-    generationId: manifest.generationId,
-    providerObjectId: verification.providerObjectId,
+    generationId: transport.value.generationId,
+    provider: "google-drive" as const,
+    providerObjectId: transport.value.providerObjectId,
     requiredScope: "drive.appdata" as const,
-    vaultId: manifest.vaultId,
+    vaultId: transport.value.vaultId,
+  };
+  Object.defineProperty(plan, googleDriveDeletePlanMarker, {
+    configurable: false,
+    enumerable: false,
+    value: transport.value,
+    writable: false,
   });
-  authorizedGoogleDriveDeletePlans.add(plan);
-  return ok(plan);
+  return ok(Object.freeze(plan));
 }
 
 export function createGoogleDriveResumeUploadPlan(
@@ -400,7 +375,7 @@ export function createGoogleDriveResumeUploadPlan(
     parsedCheckpoint.data.expectedObjectByteLength !== upload.expectedObjectByteLength ||
     parsedCheckpoint.data.committedByteLength > upload.expectedObjectByteLength
   ) {
-    return err(new LenaError("invalid_input", "Invalid Google Drive upload checkpoint"));
+    return err(new LenaError("invalid_input", { boundary: "google_drive_checkpoint" }));
   }
   return ok(
     Object.freeze({

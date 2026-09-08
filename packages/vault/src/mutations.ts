@@ -13,7 +13,11 @@ import {
   type VaultId,
   type VaultInstanceId,
 } from "@lena/core";
+import { max } from "drizzle-orm";
+import type { ExtractTablesWithRelations } from "drizzle-orm/relations";
+import type { BaseSQLiteDatabase, SQLiteTransaction } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
+import { lenaBackupOutboxTable, type LenaVaultDrizzleSchema } from "./drizzle-schema";
 import { createBackupObligation, type PendingBackupObligation } from "./obligations";
 
 /**
@@ -28,6 +32,7 @@ export interface AtomicVaultMutationPlan<Mutation> {
 export const vaultMutationReceiptSchema = z
   .strictObject({
     backupObligationCreated: z.literal(true),
+    commitSequence: z.int().min(1).max(Number.MAX_SAFE_INTEGER),
     committedAt: isoTimestampSchema,
     mutationId: mutationIdSchema,
     vaultId: vaultIdSchema,
@@ -37,6 +42,7 @@ export const vaultMutationReceiptSchema = z
 
 const vaultMutationReceiptStructureSchema = z.strictObject({
   backupObligationCreated: z.unknown(),
+  commitSequence: z.unknown(),
   committedAt: z.unknown(),
   mutationId: z.unknown(),
   vaultId: z.unknown(),
@@ -46,6 +52,8 @@ const vaultMutationReceiptStructureSchema = z.strictObject({
 export type VaultMutationReceipt = z.infer<typeof vaultMutationReceiptSchema>;
 
 export function prepareAtomicVaultMutation<Mutation>(input: {
+  commitSequence: number;
+  committedAt: IsoTimestamp;
   createdAt: IsoTimestamp;
   mutation: Mutation;
   mutationId: MutationId;
@@ -54,6 +62,8 @@ export function prepareAtomicVaultMutation<Mutation>(input: {
 }): AtomicVaultMutationPlan<Mutation> {
   return Object.freeze({
     backupObligation: createBackupObligation({
+      commitSequence: input.commitSequence,
+      committedAt: input.committedAt,
       createdAt: input.createdAt,
       mutationId: input.mutationId,
       vaultId: input.vaultId,
@@ -72,12 +82,13 @@ export function createVaultMutationReceipt<Mutation>(
   committedAt: IsoTimestamp,
 ): Result<VaultMutationReceipt, LenaError> {
   if (compareIsoTimestamps(committedAt, plan.backupObligation.createdAt) < 0) {
-    return err(new LenaError("invalid_timestamp", "Mutation commit cannot precede its creation"));
+    return err(new LenaError("invalid_timestamp"));
   }
 
   return ok(
     Object.freeze({
       backupObligationCreated: true,
+      commitSequence: plan.backupObligation.commitSequence,
       committedAt,
       mutationId: plan.backupObligation.mutationId,
       vaultId: plan.backupObligation.vaultId,
@@ -86,11 +97,196 @@ export function createVaultMutationReceipt<Mutation>(
   );
 }
 
+type VaultRelationalSchema = ExtractTablesWithRelations<LenaVaultDrizzleSchema>;
+
+export type AsyncVaultDatabase<RunResult = unknown> = BaseSQLiteDatabase<
+  "async",
+  RunResult,
+  LenaVaultDrizzleSchema,
+  VaultRelationalSchema
+>;
+
+export type AsyncVaultTransaction<RunResult = unknown> = SQLiteTransaction<
+  "async",
+  RunResult,
+  LenaVaultDrizzleSchema,
+  VaultRelationalSchema
+>;
+
+export type SyncVaultDatabase<RunResult = unknown> = BaseSQLiteDatabase<
+  "sync",
+  RunResult,
+  LenaVaultDrizzleSchema,
+  VaultRelationalSchema
+>;
+
+export type SyncVaultTransaction<RunResult = unknown> = SQLiteTransaction<
+  "sync",
+  RunResult,
+  LenaVaultDrizzleSchema,
+  VaultRelationalSchema
+>;
+
+export interface CommittedVaultMutation<MutationResult> {
+  readonly mutationResult: MutationResult;
+  readonly receipt: VaultMutationReceipt;
+}
+
+interface VaultMutationCommitInput {
+  readonly committedAt: IsoTimestamp;
+  readonly createdAt: IsoTimestamp;
+  readonly mutationId: MutationId;
+  readonly vaultId: VaultId;
+  readonly vaultInstanceId: VaultInstanceId;
+}
+
+class AbortVaultMutation extends Error {
+  constructor(readonly lenaError: LenaError) {
+    super("abort-vault-mutation");
+  }
+}
+
+function nextCommitSequence(current: number | null): Result<number, LenaError> {
+  const next = (current ?? 0) + 1;
+  return Number.isSafeInteger(next) && next > 0
+    ? ok(next)
+    : err(new LenaError("limit_exceeded", { boundary: "vault_commit_sequence" }));
+}
+
+function committedMutation<MutationResult>(
+  mutationResult: MutationResult,
+  obligation: PendingBackupObligation,
+  committedAt: IsoTimestamp,
+): CommittedVaultMutation<MutationResult> {
+  return Object.freeze({
+    mutationResult,
+    receipt: Object.freeze({
+      backupObligationCreated: true as const,
+      commitSequence: obligation.commitSequence,
+      committedAt,
+      mutationId: obligation.mutationId,
+      vaultId: obligation.vaultId,
+      vaultInstanceId: obligation.vaultInstanceId,
+    }),
+  });
+}
+
+function pendingOutboxRow(obligation: PendingBackupObligation) {
+  return {
+    attemptCount: obligation.attemptCount,
+    commitSequence: obligation.commitSequence,
+    committedAt: obligation.committedAt,
+    createdAt: obligation.createdAt,
+    mutationId: obligation.mutationId,
+    state: obligation.state,
+    vaultId: obligation.vaultId,
+    vaultInstanceId: obligation.vaultInstanceId,
+  } as const;
+}
+
+/**
+ * Commits the application callback and its backup outbox row in one exclusive Drizzle transaction.
+ * The callback is the caller-selected domain mutation, not an injected module dependency.
+ */
+export async function commitAsyncVaultMutation<RunResult, MutationResult>(
+  database: AsyncVaultDatabase<RunResult>,
+  input: VaultMutationCommitInput,
+  mutate: (
+    transaction: AsyncVaultTransaction<RunResult>,
+  ) => Promise<Result<MutationResult, LenaError>>,
+): Promise<Result<CommittedVaultMutation<MutationResult>, LenaError>> {
+  if (compareIsoTimestamps(input.committedAt, input.createdAt) < 0) {
+    return err(new LenaError("invalid_timestamp"));
+  }
+
+  try {
+    const committed = await database.transaction(
+      async (transaction) => {
+        const latest = await transaction
+          .select({ commitSequence: max(lenaBackupOutboxTable.commitSequence) })
+          .from(lenaBackupOutboxTable)
+          .get();
+        const sequence = nextCommitSequence(latest?.commitSequence ?? null);
+        if (sequence.isErr()) throw new AbortVaultMutation(sequence.error);
+
+        const obligation = createBackupObligation({
+          commitSequence: sequence.value,
+          committedAt: input.committedAt,
+          createdAt: input.createdAt,
+          mutationId: input.mutationId,
+          vaultId: input.vaultId,
+          vaultInstanceId: input.vaultInstanceId,
+        });
+        const mutation = await mutate(transaction);
+        if (mutation.isErr()) throw new AbortVaultMutation(mutation.error);
+
+        await transaction.insert(lenaBackupOutboxTable).values(pendingOutboxRow(obligation)).run();
+        return committedMutation(mutation.value, obligation, input.committedAt);
+      },
+      { behavior: "exclusive" },
+    );
+    return ok(committed);
+  } catch (cause) {
+    return err(
+      cause instanceof AbortVaultMutation
+        ? cause.lenaError
+        : new LenaError("internal", { boundary: "vault_mutation_transaction" }),
+    );
+  }
+}
+
+/** Sync-driver variant for adapters whose Drizzle transaction is synchronous. */
+export function commitSyncVaultMutation<RunResult, MutationResult>(
+  database: SyncVaultDatabase<RunResult>,
+  input: VaultMutationCommitInput,
+  mutate: (transaction: SyncVaultTransaction<RunResult>) => Result<MutationResult, LenaError>,
+): Result<CommittedVaultMutation<MutationResult>, LenaError> {
+  if (compareIsoTimestamps(input.committedAt, input.createdAt) < 0) {
+    return err(new LenaError("invalid_timestamp"));
+  }
+
+  try {
+    return ok(
+      database.transaction(
+        (transaction) => {
+          const latest = transaction
+            .select({ commitSequence: max(lenaBackupOutboxTable.commitSequence) })
+            .from(lenaBackupOutboxTable)
+            .get();
+          const sequence = nextCommitSequence(latest?.commitSequence ?? null);
+          if (sequence.isErr()) throw new AbortVaultMutation(sequence.error);
+
+          const obligation = createBackupObligation({
+            commitSequence: sequence.value,
+            committedAt: input.committedAt,
+            createdAt: input.createdAt,
+            mutationId: input.mutationId,
+            vaultId: input.vaultId,
+            vaultInstanceId: input.vaultInstanceId,
+          });
+          const mutation = mutate(transaction);
+          if (mutation.isErr()) throw new AbortVaultMutation(mutation.error);
+
+          transaction.insert(lenaBackupOutboxTable).values(pendingOutboxRow(obligation)).run();
+          return committedMutation(mutation.value, obligation, input.committedAt);
+        },
+        { behavior: "exclusive" },
+      ),
+    );
+  } catch (cause) {
+    return err(
+      cause instanceof AbortVaultMutation
+        ? cause.lenaError
+        : new LenaError("internal", { boundary: "vault_mutation_transaction" }),
+    );
+  }
+}
+
 export function parseVaultMutationReceipt(value: unknown): Result<VaultMutationReceipt, LenaError> {
   const structure = vaultMutationReceiptStructureSchema.safeParse(value);
   if (!structure.success) {
     return err(
-      new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+      new LenaError("invalid_input", {
         boundary: "vault_mutation_receipt",
       }),
     );
@@ -101,12 +297,10 @@ export function parseVaultMutationReceipt(value: unknown): Result<VaultMutationR
 
   const failedField = parsed.error.issues[0]?.path[0];
   if (failedField === "backupObligationCreated") {
-    return err(
-      new LenaError("invalid_state_transition", "Mutation receipt lacks a backup obligation"),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
   if (failedField === "committedAt") {
-    return err(new LenaError("invalid_timestamp", "Timestamp must be canonical UTC"));
+    return err(new LenaError("invalid_timestamp"));
   }
   if (
     failedField === "mutationId" ||
@@ -119,11 +313,11 @@ export function parseVaultMutationReceipt(value: unknown): Result<VaultMutationR
         : failedField === "vaultId"
           ? "VaultId"
           : "VaultInstanceId";
-    return err(new LenaError("invalid_identifier", `Invalid ${kind}`, { kind }));
+    return err(new LenaError("invalid_identifier", { kind }));
   }
 
   return err(
-    new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+    new LenaError("invalid_input", {
       boundary: "vault_mutation_receipt",
     }),
   );

@@ -39,12 +39,11 @@ export interface SyncUploadPlan {
 
 export function planSyncUpload(
   capability: DisabledSyncCapability,
-  request: SyncUploadPlanRequest,
+  _request: SyncUploadPlanRequest,
 ): Result<SyncUploadPlan, LenaError> {
   return err(
-    new LenaError("unsupported", "Hosted Sync runtime is disabled", {
+    new LenaError("unsupported", {
       boundary: "sync_upload_plan",
-      changeCount: request.changeIds.length,
       mode: capability.mode,
       reason: capability.reason,
     }),

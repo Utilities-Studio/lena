@@ -96,14 +96,20 @@ not own. Never keep parallel old and new implementations.
   backup, restore, provider, StoreKit, GPS, search, AI, and sync state machines when more than a
   simple branch exists. Parse external events with Zod first. Keep ordinary conditionals for simple
   predicates.
-- **Drizzle owns typed SQLite schema mappings and ordinary adapter queries.** Keep one canonical
-  `drizzle-orm` schema in `@lena/vault` so both SQLite adapters consume identical table and index
-  definitions. Derive Zod row/insert/update contracts from that mapping with `drizzle-zod`; never
-  duplicate table-owned row shapes by hand. Adapter packages use Drizzle for ordinary queries only
-  when their native runtimes exist.
-  Direct SQL remains appropriate for SQLCipher key-before-inspection, PRAGMAs, FTS5, `sqlite-vec`,
-  integrity checks, exact recovery transactions, and constraints or migration behavior Drizzle
-  cannot represent safely. Agents never run Drizzle, database, or migration commands.
+- **Drizzle owns typed SQLite mappings, generated migrations, and adapter migration execution.**
+  Keep one canonical `drizzle-orm` schema in `@lena/vault` so both SQLite adapters consume identical
+  table and index definitions. Derive Zod row/insert/update contracts from that mapping with
+  `drizzle-zod`; never duplicate table-owned row shapes by hand. The consuming application owns one
+  unified Lena plus domain schema and one Drizzle Kit migration history. Never add a handwritten SQL
+  registry, migration planner, statement executor, or parallel applied-migration ledger.
+  Future native adapters call the official driver-specific `migrate()` only inside the closed
+  service that has already keyed and validated the active or staging database. Direct SQL remains
+  appropriate for SQLCipher key-before-inspection, PRAGMAs, FTS5, `sqlite-vec`, integrity checks,
+  exact recovery transactions, and constraints or data backfills Drizzle cannot represent safely.
+  Migration SQL belongs in a checked-in Drizzle custom migration artifact, not a TypeScript
+  statement array. Backup discovery may classify a schema as current, older, or future; an older
+  schema is not proven compatible until staged migration, target-metadata validation, and integrity
+  checks pass. Agents never run Drizzle, database, or migration commands.
 - **Modular Turf owns geospatial primitives.** Use only the approved `@turf/*` modules and never the
   `@turf/turf` umbrella. Lena still owns input limits, antimeridian normalization, overlap priority,
   runtime opacity, privacy minimization, and review-first transition policy. Coordinates never cross

@@ -7,8 +7,9 @@ has no data-ownership capability.
 
 ## Public surface
 
-- An `expo-iap@5.4.1` StoreKit 2 service that queries an exact allowlisted product and checks local
-  StoreKit transaction verification before reducing paid access.
+- An `expo-iap` StoreKit 2 service that queries an exact allowlisted product and checks local
+  StoreKit transaction verification before reducing paid access. Production uses static named SDK
+  imports; the SDK mock and preload remain test-only.
 - Strict schema-inferred transaction, complete-snapshot, unavailable-event, and catalog-state data.
 - Exact allowlisted entitlement catalog for non-consumable lifetime and auto-renewable subscription products.
 - Monotonic adapter sequence for launch snapshots, transaction updates, unavailable states,
@@ -46,6 +47,9 @@ has no data-ownership capability.
 - Static package-boundary test proving no vault destructive import.
 
 ## Native gate
+
+Align the current 5.5.0 development/test resolution with the exact 5.4.1 host peer and approved
+dependency record before adoption. Then prove that selected version in the host native binary.
 
 Host native configuration plus sandbox/TestFlight purchase, cancel, pending, relaunch, reinstall,
 explicit restore, refund/revocation, and App Store account-change evidence.

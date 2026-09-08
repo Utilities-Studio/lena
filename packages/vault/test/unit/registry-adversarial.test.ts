@@ -36,11 +36,11 @@ import {
   isVaultValidationToken,
 } from "../../src/registry-evidence";
 
-const VAULT_ID_TEXT = "018f3f5a-1d2c-7abc-8def-0123456789ab";
-const OTHER_VAULT_ID_TEXT = "018f3f5a-1d2c-7abc-8def-1123456789ab";
-const INSTANCE_A_TEXT = "018f3f5a-1d2c-7abc-8def-2123456789ab";
-const INSTANCE_B_TEXT = "018f3f5a-1d2c-7abc-8def-3123456789ab";
-const INSTANCE_C_TEXT = "018f3f5a-1d2c-7abc-8def-4123456789ab";
+const VAULT_ID_TEXT = "018f3f5a-1d2c-4abc-8def-0123456789ab";
+const OTHER_VAULT_ID_TEXT = "018f3f5a-1d2c-4abc-8def-1123456789ab";
+const INSTANCE_A_TEXT = "018f3f5a-1d2c-4abc-8def-2123456789ab";
+const INSTANCE_B_TEXT = "018f3f5a-1d2c-4abc-8def-3123456789ab";
+const INSTANCE_C_TEXT = "018f3f5a-1d2c-4abc-8def-4123456789ab";
 const NOW_TEXT = "2026-09-01T08:15:30.000Z";
 const EARLIER_TEXT = "2026-09-01T08:15:29.000Z";
 const LATER_TEXT = "2026-09-01T08:15:31.000Z";

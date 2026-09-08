@@ -32,11 +32,9 @@ import { groupBy, maxBy, orderBy } from "es-toolkit";
 import { match } from "ts-pattern";
 import { z } from "zod";
 
-declare const catalogIdBrand: unique symbol;
+const storeKitCatalogIdSchema = z.string().brand<"StoreKitCatalogId">();
 
-export type StoreKitCatalogId = string & {
-  readonly [catalogIdBrand]: "StoreKitCatalogId";
-};
+export type StoreKitCatalogId = z.infer<typeof storeKitCatalogIdSchema>;
 
 export interface StoreKitEntitlementCatalog {
   readonly id: StoreKitCatalogId;
@@ -54,7 +52,7 @@ interface ProcessedStoreKitEvent {
 }
 
 const runtimeStoreKitCatalogStateBrand: unique symbol = Symbol("RuntimeStoreKitCatalogState");
-const runtimeStoreKitCatalogStates = new WeakSet<object>();
+const runtimeStoreKitCatalogStates = new WeakSet();
 const catalogProductShapeSchema = z.strictObject({
   productId: z.unknown(),
   productType: z.unknown(),
@@ -76,11 +74,13 @@ export interface StoreKitCatalogEntitlementState extends StoreKitCatalogEntitlem
 }
 
 function catalogIdentity(products: readonly StoreKitProductPolicy[]): StoreKitCatalogId {
-  return `storekit-catalog-v1|${products
-    .map((product) =>
-      JSON.stringify([product.productId.length, product.productId, product.productType]),
-    )
-    .join("|")}` as StoreKitCatalogId;
+  return storeKitCatalogIdSchema.parse(
+    `storekit-catalog-v1|${products
+      .map((product) =>
+        JSON.stringify([product.productId.length, product.productId, product.productType]),
+      )
+      .join("|")}`,
+  );
 }
 
 export function createStoreKitEntitlementCatalog(
@@ -89,7 +89,7 @@ export function createStoreKitEntitlementCatalog(
   const parsedInput = catalogInputSchema.safeParse(input);
   if (!parsedInput.success) {
     return err(
-      new LenaError("limit_exceeded", "StoreKit entitlement catalog size is invalid", {
+      new LenaError("limit_exceeded", {
         boundary: "storekit_catalog",
       }),
     );
@@ -104,7 +104,7 @@ export function createStoreKitEntitlementCatalog(
     }
     if (productIds.has(product.value.productId)) {
       return err(
-        new LenaError("conflict", "StoreKit product appears more than once", {
+        new LenaError("conflict", {
           boundary: "storekit_catalog",
         }),
       );
@@ -148,7 +148,7 @@ export function createInitialStoreKitCatalogEntitlementState(
 }
 
 function catalogMismatchError(): LenaError {
-  return new LenaError("conflict", "StoreKit entitlement state belongs to another catalog", {
+  return new LenaError("conflict", {
     boundary: "storekit_catalog",
     reason: "catalog_changed",
   });
@@ -161,7 +161,7 @@ function validateCatalogFacts(
   for (const fact of facts) {
     if (!isVerifiedStoreKitEntitlementFact(fact)) {
       return err(
-        new LenaError("authentication_required", "StoreKit fact lacks native verification", {
+        new LenaError("authentication_required", {
           boundary: "storekit_catalog",
         }),
       );
@@ -169,7 +169,7 @@ function validateCatalogFacts(
     const product = findStoreKitCatalogProduct(catalog, fact.productId);
     if (product === null) {
       return err(
-        new LenaError("invalid_input", "StoreKit event contains an unconfigured product", {
+        new LenaError("invalid_input", {
           boundary: "storekit_catalog",
         }),
       );
@@ -180,7 +180,7 @@ function validateCatalogFacts(
       (product.productType === "auto-renewable-subscription" && fact.expiresAt === null)
     ) {
       return err(
-        new LenaError("invalid_input", "StoreKit fact conflicts with catalog product type", {
+        new LenaError("invalid_input", {
           boundary: "storekit_catalog",
         }),
       );
@@ -220,7 +220,7 @@ function processedEventResult(
     return ok("duplicate");
   }
   return err(
-    new LenaError("conflict", "StoreKit sequence was reused for another event", {
+    new LenaError("conflict", {
       boundary: "storekit_catalog",
       reason: "sequence_collision",
     }),
@@ -243,7 +243,8 @@ function isRuntimeStoreKitCatalogEntitlementState(
 function freezeState(
   state: StoreKitCatalogEntitlementStateFields,
 ): StoreKitCatalogEntitlementState {
-  const runtimeState = {
+  const runtimeState: StoreKitCatalogEntitlementState = {
+    [runtimeStoreKitCatalogStateBrand]: true,
     catalogId: state.catalogId,
     currentFacts: Object.freeze([...state.currentFacts]),
     latestSnapshot:
@@ -254,20 +255,20 @@ function freezeState(
     ),
     snapshotFacts: Object.freeze([...state.snapshotFacts]),
     transactionFacts: Object.freeze([...state.transactionFacts]),
-  } as Record<PropertyKey, unknown>;
+  };
   Object.defineProperty(runtimeState, runtimeStoreKitCatalogStateBrand, {
     configurable: false,
     enumerable: false,
     value: true,
     writable: false,
   });
-  const issuedState = Object.freeze(runtimeState) as unknown as StoreKitCatalogEntitlementState;
+  const issuedState = Object.freeze(runtimeState);
   runtimeStoreKitCatalogStates.add(issuedState);
   return issuedState;
 }
 
 function runtimeStateError(): LenaError {
-  return new LenaError("authentication_required", "StoreKit state lacks reducer authority", {
+  return new LenaError("authentication_required", {
     boundary: "storekit_catalog",
   });
 }
@@ -476,7 +477,7 @@ export function evaluateStoreKitCatalogEntitlement(
   const latestObservation = latestStateObservation(state);
   if (latestObservation !== null && compareIsoTimestamps(asOf.value, latestObservation) < 0) {
     return err(
-      new LenaError("invalid_input", "Entitlement evaluation predates observed StoreKit state", {
+      new LenaError("invalid_input", {
         boundary: "storekit_catalog",
       }),
     );
@@ -486,18 +487,20 @@ export function evaluateStoreKitCatalogEntitlement(
     return err(validFacts.error);
   }
 
-  const active = state.currentFacts
-    .filter((fact) => {
+  const active = orderBy(
+    state.currentFacts.filter((fact) => {
       const product = findStoreKitCatalogProduct(catalog, fact.productId);
       return product !== null && factGrantsAccessAt(fact, product, asOf.value);
-    })
-    .toSorted((left, right) => {
-      const leftProduct = findStoreKitCatalogProduct(catalog, left.productId);
-      const rightProduct = findStoreKitCatalogProduct(catalog, right.productId);
-      const leftPriority = leftProduct?.productType === "non-consumable" ? 1 : 0;
-      const rightPriority = rightProduct?.productType === "non-consumable" ? 1 : 0;
-      return rightPriority - leftPriority || right.sequence - left.sequence;
-    });
+    }),
+    [
+      (fact) =>
+        findStoreKitCatalogProduct(catalog, fact.productId)?.productType === "non-consumable"
+          ? 1
+          : 0,
+      (fact) => fact.sequence,
+    ],
+    ["desc", "desc"],
+  );
   const entitled = active[0];
   if (entitled !== undefined) {
     const product = findStoreKitCatalogProduct(catalog, entitled.productId);
@@ -560,6 +563,7 @@ export function evaluateStoreKitCatalogEntitlement(
   return ok(Object.freeze({ kind: "unknown" as const }));
 }
 
+/** @deprecated Cached reducer projection only. Use StoreKitRuntimeService.hasPaidAccess. */
 export function hasStoreKitCatalogPaidAccess(
   state: StoreKitCatalogEntitlementState,
   catalog: StoreKitEntitlementCatalog,

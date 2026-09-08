@@ -10,6 +10,10 @@ Pure validators, reducers, selectors, parsers, planners, rankings, and determini
 
 The same behavior suite runs against each implementation of a real runtime boundary, such as Expo SQLite and OP-SQLite. Contract suites assert externally visible results, not SDK call order.
 
+Migration contract suites use the consuming application's generated Drizzle history and the real
+adapter-specific `migrate()` inside a keyed test service. A handwritten planner, statement
+executor, or fake transaction handle is not migration evidence.
+
 ### Integration
 
 Real local filesystem, cryptography, SQLite, provider sandbox, native module, or StoreKit configuration. Tests use controlled test containers and never production infrastructure.
@@ -40,7 +44,10 @@ missing state throws an assertion failure so a broken fixture cannot produce a v
 - New encrypted vault.
 - Existing supported schemas.
 - Wrong and missing key.
-- Duplicate, skipped, reordered, and failed migration.
+- Current, older, and future backup-schema classification. Older means staging is required, not
+  that compatibility is already proven.
+- Missing, skipped, reordered, and failed generated migration artifacts through real adapter
+  fixtures, including target-metadata and post-migration integrity failure.
 - Transaction rollback and concurrent read/write.
 - Disk full, interrupted write, close/reopen, and integrity failure.
 

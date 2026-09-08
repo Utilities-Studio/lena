@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SQLiteSyncDialect, getTableConfig } from "drizzle-orm/sqlite-core";
+import { sortBy } from "es-toolkit/compat";
 import fc from "fast-check";
 import {
   backupOutboxRowSchema,
@@ -7,9 +8,11 @@ import {
   lenaProcessedEffectsTable,
   lenaVaultDrizzleSchema,
   lenaVaultMetadataTable,
+  lenaVerifiedBackupGenerationsTable,
   parseBackupOutboxRow,
   parseProcessedEffectRow,
   parseVaultMetadataRow,
+  parseVerifiedBackupGenerationRow,
   processedEffectRowSchema,
   vaultMetadataRowSchema,
 } from "../../src/index";
@@ -36,10 +39,11 @@ function renderChecks(table: Parameters<typeof getTableConfig>[0]): string {
 
 describe("canonical Lena Drizzle schema", () => {
   test("owns one mapping with exact SQL table and column names", () => {
-    expect(Object.keys(lenaVaultDrizzleSchema).toSorted()).toEqual([
+    expect(sortBy(Object.keys(lenaVaultDrizzleSchema), [(key) => key])).toEqual([
       "backupOutbox",
       "processedEffects",
       "vaultMetadata",
+      "verifiedBackupGenerations",
     ]);
 
     expect(getTableConfig(lenaVaultMetadataTable).name).toBe("lena_vault_metadata");
@@ -53,6 +57,7 @@ describe("canonical Lena Drizzle schema", () => {
       "created_at",
     ]);
     expect(getTableConfig(lenaBackupOutboxTable).columns.map((column) => column.name)).toEqual([
+      "commit_sequence",
       "mutation_id",
       "vault_id",
       "vault_instance_id",
@@ -61,6 +66,7 @@ describe("canonical Lena Drizzle schema", () => {
       "claim_id",
       "generation_id",
       "created_at",
+      "committed_at",
       "claimed_at",
       "covered_commit_at",
       "completed_at",
@@ -74,12 +80,24 @@ describe("canonical Lena Drizzle schema", () => {
       "vault_instance_id",
       "processed_at",
     ]);
+    expect(
+      getTableConfig(lenaVerifiedBackupGenerationsTable).columns.map((column) => column.name),
+    ).toEqual([
+      "generation_id",
+      "vault_id",
+      "vault_instance_id",
+      "commit_sequence",
+      "mutation_id",
+      "committed_at",
+      "verified_at",
+    ]);
   });
 
   test("maps primary keys, defaults, enums, uniques, checks, and composite foreign keys", () => {
     const metadata = getTableConfig(lenaVaultMetadataTable);
     const outbox = getTableConfig(lenaBackupOutboxTable);
     const effects = getTableConfig(lenaProcessedEffectsTable);
+    const verifiedGenerations = getTableConfig(lenaVerifiedBackupGenerationsTable);
 
     expect(lenaVaultMetadataTable.singletonId.primary).toBe(true);
     expect(lenaVaultMetadataTable.vaultInstanceId.isUnique).toBe(true);
@@ -88,10 +106,12 @@ describe("canonical Lena Drizzle schema", () => {
       "vault_instance_id",
     ]);
     expect(lenaBackupOutboxTable.mutationId.primary).toBe(true);
+    expect(lenaBackupOutboxTable.commitSequence.isUnique).toBe(true);
     expect(lenaBackupOutboxTable.attemptCount.default).toBe(0);
     expect(lenaBackupOutboxTable.state.enumValues).toEqual(["pending", "claimed", "satisfied"]);
     expect(lenaProcessedEffectsTable.effectId.primary).toBe(true);
     expect(lenaProcessedEffectsTable.effectKind.enumValues).toEqual(["backup-obligation"]);
+    expect(lenaVerifiedBackupGenerationsTable.generationId.primary).toBe(true);
     expect(effects.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
       "vault_instance_id",
       "effect_kind",
@@ -110,17 +130,25 @@ describe("canonical Lena Drizzle schema", () => {
       ]);
       expect(reference?.foreignTable).toBe(lenaVaultMetadataTable);
     }
+    expect(verifiedGenerations.foreignKeys).toHaveLength(2);
+    expect(
+      verifiedGenerations.foreignKeys[1]?.reference().foreignColumns.map((column) => column.name),
+    ).toEqual(["commit_sequence", "mutation_id", "vault_id", "vault_instance_id"]);
 
     const metadataChecks = renderChecks(lenaVaultMetadataTable);
     const outboxChecks = renderChecks(lenaBackupOutboxTable);
     const effectChecks = renderChecks(lenaProcessedEffectsTable);
+    const verifiedGenerationChecks = renderChecks(lenaVerifiedBackupGenerationsTable);
     expect(metadataChecks).toContain("singleton_id");
     expect(metadataChecks).toContain("schema_version");
     expect(outboxChecks).toContain("state");
     expect(outboxChecks).toContain("covered_commit_at");
     expect(outboxChecks).toContain("completed_at");
     expect(outboxChecks).toContain("last_failure_code");
+    expect(outboxChecks).toContain("commit_sequence");
+    expect(outboxChecks).toContain("committed_at");
     expect(effectChecks).toContain("backup-obligation");
+    expect(verifiedGenerationChecks).toContain("verified_at");
   });
 });
 
@@ -157,6 +185,8 @@ describe("Lena-owned database row schemas", () => {
 
   test("enforces every outbox state and its chronology", () => {
     const common = {
+      committedAt: CREATED_AT,
+      commitSequence: 1,
       createdAt: CREATED_AT,
       mutationId: IDS.mutation,
       vaultId: IDS.vault,
@@ -203,6 +233,23 @@ describe("Lena-owned database row schemas", () => {
     );
   });
 
+  test("binds verified generations to an exact committed snapshot watermark", () => {
+    const row = {
+      committedAt: CREATED_AT,
+      commitSequence: 1,
+      generationId: IDS.generation,
+      mutationId: IDS.mutation,
+      vaultId: IDS.vault,
+      vaultInstanceId: IDS.vaultInstance,
+      verifiedAt: COMPLETED_AT,
+    };
+    expect(parseVerifiedBackupGenerationRow(row).isOk()).toBe(true);
+    expect(
+      parseVerifiedBackupGenerationRow({ ...row, verifiedAt: "2025-12-31T23:59:59.000Z" }).isErr(),
+    ).toBe(true);
+    expect(parseVerifiedBackupGenerationRow({ ...row, receipt: "forbidden" }).isErr()).toBe(true);
+  });
+
   test("property: pending retry rows require failure evidence exactly after an attempt", () => {
     fc.assert(
       fc.property(fc.nat({ max: 1_000 }), (attemptCount) => {
@@ -212,6 +259,8 @@ describe("Lena-owned database row schemas", () => {
           claimId: null,
           completedAt: null,
           coveredCommitAt: null,
+          committedAt: CREATED_AT,
+          commitSequence: 1,
           createdAt: CREATED_AT,
           generationId: null,
           lastFailureCode: attemptCount === 0 ? null : "temporarily_unavailable",

@@ -1,5 +1,6 @@
 import { err, LenaError, ok, type Result } from "@lena/core";
-import { uniq } from "es-toolkit";
+import { compareVersions } from "compare-versions";
+import { orderBy, uniq } from "es-toolkit";
 import {
   localAiArchitectureSchema,
   localAiPlatformSchema,
@@ -42,7 +43,13 @@ const localAiDeviceProfileSchema = z
   .transform((profile) =>
     Object.freeze({
       ...profile,
-      availableRuntimes: Object.freeze(uniq(profile.availableRuntimes).toSorted()),
+      availableRuntimes: Object.freeze(
+        orderBy(
+          uniq(profile.availableRuntimes).map((runtime) => ({ runtime })),
+          [({ runtime }) => runtime],
+          ["asc"],
+        ).map(({ runtime }) => runtime),
+      ),
       osVersion: normalizeOsVersion(profile.osVersion),
     }),
   );
@@ -72,7 +79,7 @@ export function evaluateModelEligibility(
     const minimumOsVersion = manifest.requirements.minimumOsVersions[device.value.platform];
     if (
       minimumOsVersion === undefined ||
-      compareOsVersions(device.value.osVersion, minimumOsVersion) < 0
+      compareVersions(device.value.osVersion, minimumOsVersion) < 0
     ) {
       reasons.add("os_version_unsupported");
     }
@@ -113,23 +120,10 @@ function parseDeviceProfile(value: unknown): Result<LocalAiDeviceProfile, LenaEr
   return parsed.success
     ? ok(parsed.data)
     : err(
-        new LenaError("invalid_input", "Local AI device profile is invalid", {
+        new LenaError("invalid_input", {
           boundary: "ai.device-profile",
         }),
       );
-}
-
-function compareOsVersions(left: string, right: string): -1 | 0 | 1 {
-  const leftParts = left.split(".").map(Number);
-  const rightParts = right.split(".").map(Number);
-  const length = Math.max(leftParts.length, rightParts.length);
-  for (let index = 0; index < length; index += 1) {
-    const leftPart = leftParts[index] ?? 0;
-    const rightPart = rightParts[index] ?? 0;
-    if (leftPart < rightPart) return -1;
-    if (leftPart > rightPart) return 1;
-  }
-  return 0;
 }
 
 function normalizeOsVersion(value: string): string {

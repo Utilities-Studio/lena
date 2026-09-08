@@ -1,9 +1,7 @@
 import { err, LenaError, ok, type Result } from "@lena/core";
 import { z } from "zod";
 
-const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
-
-const syncIdSchema = z.string().regex(ID_PATTERN);
+const syncIdSchema = z.uuidv4();
 
 export const syncChangeIdSchema = syncIdSchema.brand<"SyncChangeId">();
 export const syncCheckpointIdSchema = syncIdSchema.brand<"SyncCheckpointId">();
@@ -33,11 +31,7 @@ function parseSyncId<Schema extends z.ZodType>(
 ): Result<z.output<Schema>, LenaError> {
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    return err(
-      new LenaError("invalid_identifier", "Sync identifier is invalid", {
-        boundary,
-      }),
-    );
+    return err(new LenaError("invalid_identifier", { boundary }));
   }
 
   return ok(parsed.data);
@@ -70,11 +64,7 @@ export function parseSyncTombstoneId(value: unknown): Result<SyncTombstoneId, Le
 export function parseSyncProtocolVersion(value: unknown): Result<SyncProtocolVersion, LenaError> {
   const parsed = syncProtocolVersionSchema.safeParse(value);
   if (!parsed.success) {
-    return err(
-      new LenaError("invalid_input", "Sync protocol version is invalid", {
-        boundary: "sync_protocol_version",
-      }),
-    );
+    return err(new LenaError("invalid_input", { boundary: "sync_protocol_version" }));
   }
 
   return ok(parsed.data);

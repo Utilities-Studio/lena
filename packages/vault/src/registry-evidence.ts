@@ -39,12 +39,12 @@ interface VaultRetirementEvidenceFields extends VaultRegistryEvidenceFields {
 const vaultValidationTokenBrand: unique symbol = Symbol("VaultValidationToken");
 const vaultActivationTokenBrand: unique symbol = Symbol("VaultActivationToken");
 const vaultRetirementTokenBrand: unique symbol = Symbol("VaultRetirementToken");
-const issuedVaultValidationTokens = new WeakSet<object>();
-const issuedVaultActivationTokens = new WeakSet<object>();
-const issuedVaultRetirementTokens = new WeakSet<object>();
-const consumedVaultValidationTokens = new WeakSet<object>();
-const consumedVaultActivationTokens = new WeakSet<object>();
-const consumedVaultRetirementTokens = new WeakSet<object>();
+const issuedVaultValidationTokens = new WeakSet();
+const issuedVaultActivationTokens = new WeakSet();
+const issuedVaultRetirementTokens = new WeakSet();
+const consumedVaultValidationTokens = new WeakSet();
+const consumedVaultActivationTokens = new WeakSet();
+const consumedVaultRetirementTokens = new WeakSet();
 
 export type VaultValidationToken = Readonly<
   VaultRegistryEvidenceFields & {
@@ -127,7 +127,7 @@ function validatedEvidenceFields(
   if (validatedAt.isErr()) return err(validatedAt.error);
   if (input.entry.state !== input.requiredState) {
     return err(
-      new LenaError("invalid_state_transition", "Vault evidence targets the wrong registry state", {
+      new LenaError("invalid_state_transition", {
         boundary: "vault_registry_adapter",
         state: input.entry.state,
       }),
@@ -138,14 +138,14 @@ function validatedEvidenceFields(
     input.metadata.vaultInstanceId !== input.entry.vaultInstanceId
   ) {
     return err(
-      new LenaError("integrity_failed", "Vault evidence metadata identity does not match entry", {
+      new LenaError("integrity_failed", {
         boundary: "vault_registry_adapter",
       }),
     );
   }
   if (input.metadata.schemaVersion !== input.entry.schemaVersion) {
     return err(
-      new LenaError("incompatible_schema", "Vault evidence schema does not match entry", {
+      new LenaError("incompatible_schema", {
         boundary: "vault_registry_adapter",
       }),
     );
@@ -155,7 +155,7 @@ function validatedEvidenceFields(
     compareIsoTimestamps(validatedAt.value, input.metadata.createdAt) < 0
   ) {
     return err(
-      new LenaError("invalid_timestamp", "Vault validation predates its registry metadata", {
+      new LenaError("invalid_timestamp", {
         boundary: "vault_registry_adapter",
       }),
     );
@@ -176,23 +176,6 @@ function validatedEvidenceFields(
   );
 }
 
-function issueOpaqueToken<Token>(
-  fields: VaultRegistryEvidenceFields,
-  brand: symbol,
-  registry: WeakSet<object>,
-): Token {
-  const token = { ...fields } as Record<PropertyKey, unknown>;
-  Object.defineProperty(token, brand, {
-    configurable: false,
-    enumerable: false,
-    value: true,
-    writable: false,
-  });
-  const issued = Object.freeze(token) as Token & object;
-  registry.add(issued);
-  return issued;
-}
-
 /** Internal native-adapter boundary after staging open and integrity validation. */
 export function createVaultValidationTokenFromAdapter(
   input: Readonly<{
@@ -202,15 +185,14 @@ export function createVaultValidationTokenFromAdapter(
   }>,
 ): Result<VaultValidationToken, LenaError> {
   const fields = validatedEvidenceFields({ ...input, requiredState: "staging" });
-  return fields.isOk()
-    ? ok(
-        issueOpaqueToken<VaultValidationToken>(
-          fields.value,
-          vaultValidationTokenBrand,
-          issuedVaultValidationTokens,
-        ),
-      )
-    : err(fields.error);
+  if (fields.isErr()) return err(fields.error);
+  const tokenFields: VaultValidationToken = {
+    ...fields.value,
+    [vaultValidationTokenBrand]: true,
+  };
+  const token = Object.freeze(tokenFields);
+  issuedVaultValidationTokens.add(token);
+  return ok(token);
 }
 
 /** Internal native-adapter boundary after reopening and validating a ready instance. */
@@ -222,15 +204,14 @@ export function createVaultActivationTokenFromAdapter(
   }>,
 ): Result<VaultActivationToken, LenaError> {
   const fields = validatedEvidenceFields({ ...input, requiredState: "ready" });
-  return fields.isOk()
-    ? ok(
-        issueOpaqueToken<VaultActivationToken>(
-          fields.value,
-          vaultActivationTokenBrand,
-          issuedVaultActivationTokens,
-        ),
-      )
-    : err(fields.error);
+  if (fields.isErr()) return err(fields.error);
+  const tokenFields: VaultActivationToken = {
+    ...fields.value,
+    [vaultActivationTokenBrand]: true,
+  };
+  const token = Object.freeze(tokenFields);
+  issuedVaultActivationTokens.add(token);
+  return ok(token);
 }
 
 /**
@@ -264,13 +245,7 @@ export function createVaultRetirementTokenFromAdapter(
     input.replacementEntry.vaultId !== input.retiringEntry.vaultId ||
     input.replacementEntry.vaultInstanceId === input.retiringEntry.vaultInstanceId
   ) {
-    return err(
-      new LenaError(
-        "invalid_state_transition",
-        "Vault retirement requires a distinct ready replacement",
-        { boundary: "vault_registry_adapter" },
-      ),
-    );
+    return err(new LenaError("invalid_state_transition", { boundary: "vault_registry_adapter" }));
   }
   if (
     !input.registry.entries.includes(input.retiringEntry) ||
@@ -278,39 +253,30 @@ export function createVaultRetirementTokenFromAdapter(
     getRuntimeActiveVaultInstance(input.registry) !== input.replacementEntry.vaultInstanceId ||
     input.registry.activeVaultInstanceId !== input.replacementEntry.vaultInstanceId
   ) {
-    return err(
-      new LenaError(
-        "invalid_state_transition",
-        "Cleanup authorization requires the exact runtime-active replacement",
-        { boundary: "vault_registry_adapter" },
-      ),
-    );
+    return err(new LenaError("invalid_state_transition", { boundary: "vault_registry_adapter" }));
   }
   if (
     compareIsoTimestamps(cleanupAuthorizedAt.value, fields.value.validatedAt) < 0 ||
     compareIsoTimestamps(cleanupAuthorizedAt.value, input.replacementEntry.createdAt) < 0
   ) {
     return err(
-      new LenaError("invalid_timestamp", "Cleanup authorization predates vault validation", {
+      new LenaError("invalid_timestamp", {
         boundary: "vault_registry_adapter",
       }),
     );
   }
 
-  const retirementFields = Object.freeze({
+  const tokenFields: VaultRetirementToken = {
     ...fields.value,
+    [vaultRetirementTokenBrand]: true,
     cleanupAuthorizedAt: cleanupAuthorizedAt.value,
     replacementEntryCreatedAt: input.replacementEntry.createdAt,
     replacementLocator: input.replacementEntry.locator,
     replacementSchemaVersion: input.replacementEntry.schemaVersion,
     replacementVaultId: input.replacementEntry.vaultId,
     replacementVaultInstanceId: input.replacementEntry.vaultInstanceId,
-  });
-  return ok(
-    issueOpaqueToken<VaultRetirementToken>(
-      retirementFields,
-      vaultRetirementTokenBrand,
-      issuedVaultRetirementTokens,
-    ),
-  );
+  };
+  const token = Object.freeze(tokenFields);
+  issuedVaultRetirementTokens.add(token);
+  return ok(token);
 }

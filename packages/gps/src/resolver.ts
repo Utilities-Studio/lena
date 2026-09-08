@@ -1,64 +1,16 @@
+import turfBbox from "@turf/bbox";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import turfDistance from "@turf/distance";
 import { point as turfPoint, polygon as turfPolygon } from "@turf/helpers";
-import { err, LenaError, ok, parseIsoTimestamp, type IsoTimestamp, type Result } from "@lena/core";
+import { err, isoTimestampSchema, LenaError, ok, type Result } from "@lena/core";
 import { orderBy, sumBy, uniqBy } from "es-toolkit";
+import Flatbush from "flatbush";
 import { z } from "zod";
 
-import {
-  countryCodeSchema,
-  gpsDetectorVersionSchema,
-  type CountryCode,
-  type GpsDetectorVersion,
-} from "./identifiers";
+import { countryCodeSchema, gpsDetectorVersionSchema } from "./identifiers";
 
-const coordinateSampleBrand: unique symbol = Symbol("EphemeralCoordinateSample");
-const coordinateSamples = new WeakSet<object>();
-
-export interface EphemeralCoordinateSample {
-  readonly [coordinateSampleBrand]: true;
-  readonly horizontalAccuracyMeters: number;
-  readonly latitude: number;
-  readonly longitude: number;
-  readonly observedAt: IsoTimestamp;
-}
-
-export interface EphemeralBoundaryPoint {
-  readonly latitude: number;
-  readonly longitude: number;
-}
-
-export interface EphemeralCountryPolygon {
-  readonly holes: readonly (readonly EphemeralBoundaryPoint[])[];
-  readonly outer: readonly EphemeralBoundaryPoint[];
-}
-
-export interface EphemeralCountryBoundary {
-  readonly countryCode: CountryCode;
-  readonly polygons: readonly EphemeralCountryPolygon[];
-  readonly priority: number;
-}
-
-const countryBoundaryDatasetBrand: unique symbol = Symbol("EphemeralCountryBoundaryDataset");
-const countryBoundaryDatasets = new WeakSet<object>();
-
-export interface EphemeralCountryBoundaryDataset {
-  readonly [countryBoundaryDatasetBrand]: true;
-  readonly countries: readonly EphemeralCountryBoundary[];
-  readonly version: GpsDetectorVersion;
-}
-
-const countryResolutionBrand: unique symbol = Symbol("CountryResolution");
-const countryResolutions = new WeakSet<object>();
 const resolutionSamples = new WeakMap<object, EphemeralCoordinateSample>();
-
-export interface CountryResolution {
-  readonly [countryResolutionBrand]: true;
-  readonly boundaryDatasetVersion: GpsDetectorVersion;
-  readonly countryCode: CountryCode;
-  readonly match: "overlap" | "unambiguous";
-  readonly matchedCountryCount: number;
-}
+const indexedBoundaryDatasets = new WeakMap<object, BoundarySpatialIndex>();
 
 export function isCountryResolutionForSample(
   resolution: unknown,
@@ -67,7 +19,6 @@ export function isCountryResolutionForSample(
   return (
     typeof resolution === "object" &&
     resolution !== null &&
-    countryResolutions.has(resolution) &&
     resolutionSamples.get(resolution) === sample
   );
 }
@@ -82,71 +33,100 @@ const DATASET_LIMITS = Object.freeze({
 
 const latitudeSchema = z.number().min(-90).max(90);
 const longitudeSchema = z.number().min(-180).max(180);
-const safePrioritySchema = z.number().refine(Number.isSafeInteger).min(-1_000_000).max(1_000_000);
+const safePrioritySchema = z.int().min(-1_000_000).max(1_000_000);
 
-export const ephemeralCoordinateSampleInputSchema = z.object({
-  horizontalAccuracyMeters: z.number().min(0).max(100_000),
-  latitude: latitudeSchema,
-  longitude: longitudeSchema,
-  observedAt: z.string(),
-});
+export const ephemeralCoordinateSampleInputSchema = z
+  .strictObject({
+    horizontalAccuracyMeters: z.number().min(0).max(100_000),
+    latitude: latitudeSchema,
+    longitude: longitudeSchema,
+    observedAt: isoTimestampSchema,
+  })
+  .readonly();
 
-export const ephemeralBoundaryPointSchema = z.object({
-  latitude: latitudeSchema,
-  longitude: longitudeSchema,
-});
+export const ephemeralBoundaryPointSchema = z
+  .strictObject({
+    latitude: latitudeSchema,
+    longitude: longitudeSchema,
+  })
+  .readonly();
 
 const boundaryRingSchema = z
   .array(ephemeralBoundaryPointSchema)
   .min(3)
-  .max(DATASET_LIMITS.pointsPerRing);
+  .max(DATASET_LIMITS.pointsPerRing)
+  .readonly();
 
-const countryPolygonSchema = z.object({
-  holes: z.array(boundaryRingSchema).max(DATASET_LIMITS.holesPerPolygon).optional().default([]),
-  outer: boundaryRingSchema,
-});
+const countryPolygonSchema = z
+  .strictObject({
+    holes: z
+      .array(boundaryRingSchema)
+      .max(DATASET_LIMITS.holesPerPolygon)
+      .readonly()
+      .optional()
+      .default([]),
+    outer: boundaryRingSchema,
+  })
+  .readonly();
 
-const countryBoundarySchema = z.object({
-  countryCode: countryCodeSchema,
-  polygons: z.array(countryPolygonSchema).min(1).max(DATASET_LIMITS.polygonsPerCountry),
-  priority: safePrioritySchema.optional().default(0),
-});
+const countryBoundarySchema = z
+  .strictObject({
+    countryCode: countryCodeSchema,
+    polygons: z
+      .array(countryPolygonSchema)
+      .min(1)
+      .max(DATASET_LIMITS.polygonsPerCountry)
+      .readonly(),
+    priority: safePrioritySchema.optional().default(0),
+  })
+  .readonly();
 
-export const ephemeralCountryBoundaryDatasetInputSchema = z.object({
-  countries: z.array(countryBoundarySchema).min(1).max(DATASET_LIMITS.countries),
-  version: gpsDetectorVersionSchema,
-});
+export const ephemeralCountryBoundaryDatasetInputSchema = z
+  .strictObject({
+    countries: z.array(countryBoundarySchema).min(1).max(DATASET_LIMITS.countries).readonly(),
+    version: gpsDetectorVersionSchema,
+  })
+  .readonly();
+
+export type EphemeralCoordinateSample = z.output<typeof ephemeralCoordinateSampleInputSchema>;
+export type EphemeralBoundaryPoint = z.output<typeof ephemeralBoundaryPointSchema>;
+export type EphemeralCountryPolygon = z.output<typeof countryPolygonSchema>;
+export type EphemeralCountryBoundary = z.output<typeof countryBoundarySchema>;
+export type EphemeralCountryBoundaryDataset = z.output<
+  typeof ephemeralCountryBoundaryDatasetInputSchema
+>;
+
+export const countryResolutionSchema = z
+  .strictObject({
+    boundaryDatasetVersion: gpsDetectorVersionSchema,
+    countryCode: countryCodeSchema,
+    match: z.enum(["overlap", "unambiguous"]),
+    matchedCountryCount: z.number().int().safe().positive(),
+  })
+  .readonly();
+
+export type CountryResolution = z.output<typeof countryResolutionSchema>;
+
+interface IndexedCountryPolygon {
+  readonly country: EphemeralCountryBoundary;
+  readonly geometry: ReturnType<typeof turfPolygon>;
+  readonly referenceLongitude: number;
+}
+
+interface BoundarySpatialIndex {
+  readonly index: Flatbush;
+  readonly polygons: readonly IndexedCountryPolygon[];
+}
 
 export function parseEphemeralCoordinateSample(
   input: unknown,
 ): Result<EphemeralCoordinateSample, LenaError> {
   const parsed = ephemeralCoordinateSampleInputSchema.safeParse(input);
   if (!parsed.success) {
-    return err(
-      new LenaError("invalid_input", "GPS coordinate sample is invalid", {
-        boundary: "gps_coordinate_sample",
-      }),
-    );
+    return err(new LenaError("invalid_input", { boundary: "gps_coordinate_sample" }));
   }
 
-  const observedAt = parseIsoTimestamp(parsed.data.observedAt);
-  if (observedAt.isErr()) {
-    return err(observedAt.error);
-  }
-
-  const sample = {
-    ...parsed.data,
-    observedAt: observedAt.value,
-  } as Record<PropertyKey, unknown>;
-  Object.defineProperty(sample, coordinateSampleBrand, {
-    configurable: false,
-    enumerable: false,
-    value: true,
-    writable: false,
-  });
-  const verifiedSample = Object.freeze(sample) as unknown as EphemeralCoordinateSample;
-  coordinateSamples.add(verifiedSample);
-  return ok(verifiedSample);
+  return ok(parsed.data);
 }
 
 function isDegenerateRing(ring: readonly EphemeralBoundaryPoint[]): boolean {
@@ -158,22 +138,14 @@ export function parseEphemeralCountryBoundaryDataset(
 ): Result<EphemeralCountryBoundaryDataset, LenaError> {
   const parsed = ephemeralCountryBoundaryDatasetInputSchema.safeParse(input);
   if (!parsed.success) {
-    return err(
-      new LenaError("invalid_input", "GPS boundary dataset is invalid", {
-        boundary: "gps_boundary_dataset",
-      }),
-    );
+    return err(new LenaError("invalid_input", { boundary: "gps_boundary_dataset" }));
   }
 
   if (
     uniqBy(parsed.data.countries, ({ countryCode }) => countryCode).length !==
     parsed.data.countries.length
   ) {
-    return err(
-      new LenaError("conflict", "GPS country boundary is duplicated", {
-        boundary: "gps_boundary_dataset",
-      }),
-    );
+    return err(new LenaError("conflict", { boundary: "gps_boundary_dataset" }));
   }
 
   const containsDegenerateRing = parsed.data.countries.some(({ polygons }) =>
@@ -182,22 +154,14 @@ export function parseEphemeralCountryBoundaryDataset(
     ),
   );
   if (containsDegenerateRing) {
-    return err(
-      new LenaError("invalid_input", "GPS polygon ring is degenerate", {
-        boundary: "gps_boundary_dataset",
-      }),
-    );
+    return err(new LenaError("invalid_input", { boundary: "gps_boundary_dataset" }));
   }
 
   const pointCount = sumBy(parsed.data.countries, ({ polygons }) =>
     sumBy(polygons, ({ holes, outer }) => outer.length + sumBy(holes, (hole) => hole.length)),
   );
   if (pointCount > DATASET_LIMITS.totalPoints) {
-    return err(
-      new LenaError("limit_exceeded", "GPS boundary dataset is too large", {
-        boundary: "gps_boundary_dataset",
-      }),
-    );
+    return err(new LenaError("limit_exceeded", { boundary: "gps_boundary_dataset" }));
   }
 
   const countries = parsed.data.countries.map(({ countryCode, polygons, priority }) =>
@@ -214,19 +178,12 @@ export function parseEphemeralCountryBoundaryDataset(
       priority,
     }),
   );
-  const dataset = {
+  const dataset = Object.freeze({
     countries: Object.freeze(countries),
     version: parsed.data.version,
-  } as Record<PropertyKey, unknown>;
-  Object.defineProperty(dataset, countryBoundaryDatasetBrand, {
-    configurable: false,
-    enumerable: false,
-    value: true,
-    writable: false,
   });
-  const verifiedDataset = Object.freeze(dataset) as unknown as EphemeralCountryBoundaryDataset;
-  countryBoundaryDatasets.add(verifiedDataset);
-  return ok(verifiedDataset);
+  indexedBoundaryDatasets.set(dataset, buildBoundarySpatialIndex(dataset));
+  return ok(dataset);
 }
 
 function unwrapLongitude(longitude: number, reference: number): number {
@@ -248,29 +205,62 @@ function toClosedTurfRing(
   return first === undefined ? positions : [...positions, [first[0], first[1]]];
 }
 
-function ringContains(
-  sample: EphemeralCoordinateSample,
-  ring: readonly EphemeralBoundaryPoint[],
-): boolean {
-  const target = turfPoint([sample.longitude, sample.latitude]);
-  const area = turfPolygon([toClosedTurfRing(ring, sample.longitude)]);
-  return booleanPointInPolygon(target, area);
-}
-
-function polygonContains(
-  sample: EphemeralCoordinateSample,
-  polygon: EphemeralCountryPolygon,
-): boolean {
-  return (
-    ringContains(sample, polygon.outer) && !polygon.holes.some((hole) => ringContains(sample, hole))
-  );
+function buildBoundarySpatialIndex(dataset: EphemeralCountryBoundaryDataset): BoundarySpatialIndex {
+  const entries: Array<{
+    bounds: readonly [number, number, number, number];
+    polygon: IndexedCountryPolygon;
+  }> = [];
+  for (const country of dataset.countries) {
+    for (const polygon of country.polygons) {
+      const referenceLongitude = polygon.outer[0]?.longitude ?? 0;
+      const geometry = turfPolygon([
+        toClosedTurfRing(polygon.outer, referenceLongitude),
+        ...polygon.holes.map((hole) => toClosedTurfRing(hole, referenceLongitude)),
+      ]);
+      const indexedPolygon = Object.freeze({
+        country,
+        geometry,
+        referenceLongitude,
+      });
+      const [minimumLongitude, minimumLatitude, maximumLongitude, maximumLatitude] =
+        turfBbox(geometry);
+      const bounds = [
+        minimumLongitude,
+        minimumLatitude,
+        maximumLongitude,
+        maximumLatitude,
+      ] as const;
+      entries.push({ bounds, polygon: indexedPolygon });
+      if (bounds[0] < -180) {
+        entries.push({
+          bounds: [bounds[0] + 360, bounds[1], bounds[2] + 360, bounds[3]],
+          polygon: indexedPolygon,
+        });
+      }
+      if (bounds[2] > 180) {
+        entries.push({
+          bounds: [bounds[0] - 360, bounds[1], bounds[2] - 360, bounds[3]],
+          polygon: indexedPolygon,
+        });
+      }
+    }
+  }
+  const index = new Flatbush(entries.length);
+  for (const { bounds } of entries) {
+    index.add(...bounds);
+  }
+  index.finish();
+  return Object.freeze({ index, polygons: Object.freeze(entries.map(({ polygon }) => polygon)) });
 }
 
 export function measureEphemeralDistanceMeters(
   from: EphemeralCoordinateSample,
   to: EphemeralCoordinateSample,
 ): number | null {
-  if (!coordinateSamples.has(from) || !coordinateSamples.has(to)) {
+  if (
+    !ephemeralCoordinateSampleInputSchema.safeParse(from).success ||
+    !ephemeralCoordinateSampleInputSchema.safeParse(to).success
+  ) {
     return null;
   }
 
@@ -285,13 +275,38 @@ export function resolveCountry(
   sample: EphemeralCoordinateSample,
   dataset: EphemeralCountryBoundaryDataset,
 ): CountryResolution | null {
-  if (!coordinateSamples.has(sample) || !countryBoundaryDatasets.has(dataset)) {
+  const parsedSample = ephemeralCoordinateSampleInputSchema.safeParse(sample);
+  const spatial = indexedBoundaryDatasets.get(dataset);
+  if (!parsedSample.success || spatial === undefined) {
     return null;
   }
 
+  const candidates = uniqBy(
+    spatial.index
+      .search(
+        parsedSample.data.longitude,
+        parsedSample.data.latitude,
+        parsedSample.data.longitude,
+        parsedSample.data.latitude,
+      )
+      .map((index) => spatial.polygons[index])
+      .filter((candidate): candidate is IndexedCountryPolygon => candidate !== undefined),
+    (candidate) => candidate,
+  );
   const matches = orderBy(
-    dataset.countries.filter((country) =>
-      country.polygons.some((candidate) => polygonContains(sample, candidate)),
+    uniqBy(
+      candidates
+        .filter((candidate) =>
+          booleanPointInPolygon(
+            turfPoint([
+              unwrapLongitude(parsedSample.data.longitude, candidate.referenceLongitude),
+              parsedSample.data.latitude,
+            ]),
+            candidate.geometry,
+          ),
+        )
+        .map(({ country }) => country),
+      ({ countryCode }) => countryCode,
     ),
     [({ priority }) => priority, ({ countryCode }) => countryCode],
     ["desc", "asc"],
@@ -301,20 +316,12 @@ export function resolveCountry(
     return null;
   }
 
-  const resolution = {
+  const resolution = Object.freeze({
     boundaryDatasetVersion: dataset.version,
     countryCode: selected.countryCode,
     match: matches.length === 1 ? "unambiguous" : "overlap",
     matchedCountryCount: matches.length,
-  } as Record<PropertyKey, unknown>;
-  Object.defineProperty(resolution, countryResolutionBrand, {
-    configurable: false,
-    enumerable: false,
-    value: true,
-    writable: false,
   });
-  const verifiedResolution = Object.freeze(resolution) as unknown as CountryResolution;
-  countryResolutions.add(verifiedResolution);
-  resolutionSamples.set(verifiedResolution, sample);
-  return verifiedResolution;
+  resolutionSamples.set(resolution, sample);
+  return resolution;
 }

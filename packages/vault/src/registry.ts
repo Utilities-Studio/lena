@@ -144,7 +144,7 @@ function preserveRuntimeActivation(source: VaultRegistry, target: VaultRegistry)
 export function validateVaultLocator(value: unknown): Result<string, LenaError> {
   const parsed = vaultLocatorSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Vault locator must be a safe relative path"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);
@@ -154,7 +154,7 @@ export function parseVaultRegistryEntry(value: unknown): Result<VaultRegistryEnt
   const structure = vaultRegistryEntryStructureSchema.safeParse(value);
   if (!structure.success) {
     return err(
-      new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+      new LenaError("invalid_input", {
         boundary: "vault_registry_entry",
       }),
     );
@@ -165,21 +165,21 @@ export function parseVaultRegistryEntry(value: unknown): Result<VaultRegistryEnt
 
   const failedField = parsed.error.issues[0]?.path[0];
   if (failedField === "createdAt") {
-    return err(new LenaError("invalid_timestamp", "Timestamp must be canonical UTC"));
+    return err(new LenaError("invalid_timestamp"));
   }
   if (failedField === "vaultId" || failedField === "vaultInstanceId") {
     const kind = failedField === "vaultId" ? "VaultId" : "VaultInstanceId";
-    return err(new LenaError("invalid_identifier", `Invalid ${kind}`, { kind }));
+    return err(new LenaError("invalid_identifier", { kind }));
   }
   if (failedField === "locator") {
-    return err(new LenaError("invalid_input", "Vault locator must be a safe relative path"));
+    return err(new LenaError("invalid_input"));
   }
   if (failedField === "state") {
-    return err(new LenaError("invalid_input", "Invalid vault registry entry state"));
+    return err(new LenaError("invalid_input"));
   }
 
   return err(
-    new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+    new LenaError("invalid_input", {
       boundary: "vault_registry_entry",
     }),
   );
@@ -201,9 +201,7 @@ export function addVaultRegistryEntry(
   if (parsedEntry.isErr()) return err(parsedEntry.error);
 
   if (parsedEntry.value.state !== "staging") {
-    return err(
-      new LenaError("invalid_state_transition", "New vault instances must begin in staging"),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
 
   return appendVaultRegistryEntry(registry, parsedEntry.value);
@@ -214,11 +212,11 @@ function appendVaultRegistryEntry(
   entry: VaultRegistryEntry,
 ): Result<VaultRegistry, LenaError> {
   if (registry.entries.some((item) => item.vaultInstanceId === entry.vaultInstanceId)) {
-    return err(new LenaError("already_exists", "Vault instance is already registered"));
+    return err(new LenaError("already_exists"));
   }
 
   if (registry.entries.some((item) => item.locator === entry.locator)) {
-    return err(new LenaError("already_exists", "Vault locator is already registered"));
+    return err(new LenaError("already_exists"));
   }
 
   return ok(
@@ -264,7 +262,7 @@ export function markStagingVaultReady(
 ): Result<VaultRegistry, LenaError> {
   if (!isVaultValidationToken(evidence)) {
     return err(
-      new LenaError("authentication_required", "Vault readiness lacks validation evidence", {
+      new LenaError("authentication_required", {
         boundary: "vault_registry",
       }),
     );
@@ -273,15 +271,13 @@ export function markStagingVaultReady(
     (candidate) => candidate.vaultInstanceId === evidence.vaultInstanceId,
   );
   if (entry === undefined) {
-    return err(new LenaError("not_found", "Vault instance is not registered"));
+    return err(new LenaError("not_found"));
   }
   if (entry.state !== "staging" || !evidenceMatchesEntry(evidence, entry)) {
-    return err(
-      new LenaError("invalid_state_transition", "Validation evidence does not match staging vault"),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
   if (!consumeVaultValidationToken(evidence)) {
-    return err(new LenaError("conflict", "Vault validation evidence was already consumed"));
+    return err(new LenaError("conflict"));
   }
 
   const entries = registry.entries.map((candidate) =>
@@ -303,25 +299,25 @@ export function activateRegisteredVault(
 ): Result<VaultRegistry, LenaError> {
   if (!isVaultActivationToken(evidence)) {
     return err(
-      new LenaError("authentication_required", "Vault activation lacks validation evidence", {
+      new LenaError("authentication_required", {
         boundary: "vault_registry",
       }),
     );
   }
   const entry = registry.entries.find((item) => item.vaultInstanceId === evidence.vaultInstanceId);
   if (!entry) {
-    return err(new LenaError("not_found", "Vault instance is not registered"));
+    return err(new LenaError("not_found"));
   }
 
   if (entry.state !== "ready" || !evidenceMatchesEntry(evidence, entry)) {
     return err(
-      new LenaError("invalid_state_transition", "Only a ready vault instance can become active", {
+      new LenaError("invalid_state_transition", {
         state: entry.state,
       }),
     );
   }
   if (!consumeVaultActivationToken(evidence)) {
-    return err(new LenaError("conflict", "Vault activation evidence was already consumed"));
+    return err(new LenaError("conflict"));
   }
 
   const activated = Object.freeze({
@@ -339,24 +335,19 @@ export function updateRegisteredVaultState(
 ): Result<VaultRegistry, LenaError> {
   const parsedState = vaultRegistryEntryStateSchema.safeParse(state);
   if (!parsedState.success) {
-    return err(new LenaError("invalid_input", "Invalid vault registry entry state"));
+    return err(new LenaError("invalid_input"));
   }
   const index = registry.entries.findIndex((item) => item.vaultInstanceId === vaultInstanceId);
   if (index < 0) {
-    return err(new LenaError("not_found", "Vault instance is not registered"));
+    return err(new LenaError("not_found"));
   }
 
   const current = registry.entries[index];
   if (current === undefined) {
-    return err(new LenaError("internal", "Registered vault lookup failed"));
+    return err(new LenaError("internal"));
   }
   if (current.state === parsedState.data) return ok(registry);
-  return err(
-    new LenaError(
-      "invalid_state_transition",
-      "Vault registry state changes require dedicated evidence",
-    ),
-  );
+  return err(new LenaError("invalid_state_transition"));
 }
 
 export function retireRegisteredVault(
@@ -365,7 +356,7 @@ export function retireRegisteredVault(
 ): Result<VaultRegistry, LenaError> {
   if (!isVaultRetirementToken(evidence)) {
     return err(
-      new LenaError("authentication_required", "Vault retirement lacks cleanup authorization", {
+      new LenaError("authentication_required", {
         boundary: "vault_registry",
       }),
     );
@@ -378,23 +369,16 @@ export function retireRegisteredVault(
     (entry) => entry.vaultInstanceId === evidence.replacementVaultInstanceId,
   );
   if (retiringEntry === undefined || replacementEntry === undefined) {
-    return err(new LenaError("not_found", "Vault retirement instance is not registered"));
+    return err(new LenaError("not_found"));
   }
   if (retiringEntry.state !== "ready" || !evidenceMatchesEntry(evidence, retiringEntry)) {
-    return err(
-      new LenaError("invalid_state_transition", "Retirement evidence does not match ready vault"),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
   if (
     replacementEntry.state !== "ready" ||
     !retirementReplacementMatchesEntry(evidence, replacementEntry)
   ) {
-    return err(
-      new LenaError(
-        "invalid_state_transition",
-        "Retirement replacement does not match a ready vault",
-      ),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
 
   const runtimeActiveVaultInstanceId = getRuntimeActiveVaultInstance(registry);
@@ -402,15 +386,10 @@ export function retireRegisteredVault(
     runtimeActiveVaultInstanceId !== replacementEntry.vaultInstanceId ||
     registry.activeVaultInstanceId !== replacementEntry.vaultInstanceId
   ) {
-    return err(
-      new LenaError(
-        "invalid_state_transition",
-        "Retirement requires its exact replacement to be runtime-active",
-      ),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
   if (!consumeVaultRetirementToken(evidence)) {
-    return err(new LenaError("conflict", "Vault retirement evidence was already consumed"));
+    return err(new LenaError("conflict"));
   }
 
   const entries = registry.entries.map((entry) =>
@@ -443,23 +422,23 @@ export function parseVaultRegistry(value: unknown): Result<VaultRegistry, LenaEr
   const structure = vaultRegistryStructureSchema.safeParse(value);
   if (!structure.success) {
     return err(
-      new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+      new LenaError("invalid_input", {
         boundary: "vault_registry",
       }),
     );
   }
 
   if (structure.data.formatVersion !== VAULT_REGISTRY_FORMAT_VERSION) {
-    return err(new LenaError("unsupported", "Unsupported vault registry format"));
+    return err(new LenaError("unsupported"));
   }
 
   if (!Array.isArray(structure.data.entries)) {
-    return err(new LenaError("invalid_input", "Vault registry entries must be an array"));
+    return err(new LenaError("invalid_input"));
   }
   for (const entry of structure.data.entries) {
     if (!vaultRegistryEntryStructureSchema.safeParse(entry).success) {
       return err(
-        new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+        new LenaError("invalid_input", {
           boundary: "vault_registry_entry",
         }),
       );
@@ -471,19 +450,19 @@ export function parseVaultRegistry(value: unknown): Result<VaultRegistry, LenaEr
 
   const invariant = parsed.error.issues.find((issue) => issue.code === "custom")?.message;
   if (invariant === "duplicate_vault_instance") {
-    return err(new LenaError("already_exists", "Vault instance is already registered"));
+    return err(new LenaError("already_exists"));
   }
   if (invariant === "duplicate_vault_locator") {
-    return err(new LenaError("already_exists", "Vault locator is already registered"));
+    return err(new LenaError("already_exists"));
   }
   if (invariant === "active_vault_not_ready") {
-    return err(new LenaError("invalid_state_transition", "Persisted active vault is not ready"));
+    return err(new LenaError("invalid_state_transition"));
   }
 
   const issue = parsed.error.issues[0];
   const failedField = issue?.path.at(-1);
   if (failedField === "createdAt") {
-    return err(new LenaError("invalid_timestamp", "Timestamp must be canonical UTC"));
+    return err(new LenaError("invalid_timestamp"));
   }
   if (
     failedField === "vaultId" ||
@@ -491,14 +470,14 @@ export function parseVaultRegistry(value: unknown): Result<VaultRegistry, LenaEr
     failedField === "activeVaultInstanceId"
   ) {
     const kind = failedField === "vaultId" ? "VaultId" : "VaultInstanceId";
-    return err(new LenaError("invalid_identifier", `Invalid ${kind}`, { kind }));
+    return err(new LenaError("invalid_identifier", { kind }));
   }
   if (issue?.path[0] === "entries" && issue.path.length === 1) {
-    return err(new LenaError("invalid_input", "Vault registry entries must be an array"));
+    return err(new LenaError("invalid_input"));
   }
 
   return err(
-    new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+    new LenaError("invalid_input", {
       boundary: "vault_registry",
     }),
   );
@@ -510,7 +489,7 @@ export function validateVaultMetadataAgainstRegistryEntry(
 ): Result<VaultRegistryEntry, LenaError> {
   if (metadata.vaultId !== entry.vaultId) {
     return err(
-      new LenaError("integrity_failed", "Vault metadata does not match registry identity", {
+      new LenaError("integrity_failed", {
         identityField: "vaultId",
       }),
     );
@@ -518,7 +497,7 @@ export function validateVaultMetadataAgainstRegistryEntry(
 
   if (metadata.vaultInstanceId !== entry.vaultInstanceId) {
     return err(
-      new LenaError("integrity_failed", "Vault metadata does not match registry identity", {
+      new LenaError("integrity_failed", {
         identityField: "vaultInstanceId",
       }),
     );
@@ -526,7 +505,7 @@ export function validateVaultMetadataAgainstRegistryEntry(
 
   if (metadata.schemaVersion !== entry.schemaVersion) {
     return err(
-      new LenaError("incompatible_schema", "Vault metadata does not match registry schema", {
+      new LenaError("incompatible_schema", {
         registrySchemaVersion: entry.schemaVersion,
         vaultSchemaVersion: metadata.schemaVersion,
       }),

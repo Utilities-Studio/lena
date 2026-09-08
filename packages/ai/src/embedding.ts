@@ -30,15 +30,15 @@ export function validateEmbeddingOutput(
   specification: ModelEmbeddingManifest,
 ): Result<readonly number[], LenaError> {
   if (!Array.isArray(value) && !(value instanceof Float32Array)) {
-    return err(new LenaError("invalid_input", "Embedding output must be a numeric array"));
+    return err(new LenaError("invalid_input", { boundary: "ai_embedding_output" }));
   }
   const parsedEmbedding = z.array(z.number().finite()).safeParse(Array.from(value));
   if (!parsedEmbedding.success) {
-    return err(new LenaError("invalid_input", "Embedding output must contain finite numbers"));
+    return err(new LenaError("invalid_input", { boundary: "ai_embedding_output" }));
   }
   if (parsedEmbedding.data.length !== specification.dimensions) {
     return err(
-      new LenaError("invalid_input", "Embedding output has the wrong dimensions", {
+      new LenaError("invalid_input", {
         actual: parsedEmbedding.data.length,
         expected: specification.dimensions,
       }),
@@ -49,7 +49,7 @@ export function validateEmbeddingOutput(
   if (specification.normalized) {
     const magnitude = Math.sqrt(sumBy(embedding, (component) => component * component));
     if (!Number.isFinite(magnitude) || Math.abs(magnitude - 1) > NORMALIZED_VECTOR_TOLERANCE) {
-      return err(new LenaError("integrity_failed", "Embedding output is not normalized"));
+      return err(new LenaError("integrity_failed", { boundary: "ai_embedding_output" }));
     }
   }
 
@@ -60,7 +60,7 @@ export function createDerivedEmbeddingRecord(
   input: CreateDerivedEmbeddingInput,
 ): Result<DerivedEmbeddingRecord, LenaError> {
   if (input.manifest.embedding === null) {
-    return err(new LenaError("unsupported", "Model does not provide embeddings"));
+    return err(new LenaError("unsupported", { capability: "embeddings" }));
   }
   const embedding = validateEmbeddingOutput(input.embedding, input.manifest.embedding);
   if (embedding.isErr()) return err(embedding.error);

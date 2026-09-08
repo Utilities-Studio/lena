@@ -76,7 +76,7 @@ export function assessExpoSqliteReadiness(
     derivedFeatures,
     missingCapability: validated.isOk()
       ? null
-      : String(validated.error.details["capability"] ?? "unknown"),
+      : (validated.error.details["capability"] ?? "unknown"),
     openSequence,
     runtimeReady: false,
     status: EXPO_SQLITE_RUNTIME_STATUS,

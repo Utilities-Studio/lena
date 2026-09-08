@@ -1,4 +1,5 @@
 import { err, expectRecord, LenaError, modelIdSchema, ok, type Result } from "@lena/core";
+import { validate as isVersion } from "compare-versions";
 import { uniq } from "es-toolkit";
 import { z } from "zod";
 
@@ -22,7 +23,6 @@ export type LocalAiArchitecture = z.infer<typeof localAiArchitectureSchema>;
 const CAPABILITIES = localAiCapabilitySchema.options;
 const PLATFORMS = localAiPlatformSchema.options;
 const ARCHITECTURES = localAiArchitectureSchema.options;
-const VERSION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const OS_VERSION_PATTERN = /^\d+(?:\.\d+){0,3}$/;
 
@@ -43,8 +43,9 @@ function normalizeOsVersion(value: string): string {
 
 const versionSchema = z
   .string()
+  .max(128)
   .transform((value) => value.normalize("NFC").trim())
-  .pipe(z.string().regex(VERSION_PATTERN));
+  .pipe(z.string().refine(isVersion));
 
 const osVersionSchema = z.string().regex(OS_VERSION_PATTERN).transform(normalizeOsVersion);
 
@@ -152,13 +153,13 @@ export function parseModelManifest(value: unknown): Result<ModelManifest, LenaEr
   const record = expectRecord(value, "ai.model-manifest");
   if (record.isErr()) return err(record.error);
   if (record.value["formatVersion"] !== 1) {
-    return err(new LenaError("unsupported", "Model manifest version is unsupported"));
+    return err(new LenaError("unsupported", { boundary: "ai.model-manifest" }));
   }
 
   const parsed = modelManifestSchema.safeParse(value);
   if (!parsed.success) {
     return err(
-      new LenaError("invalid_input", "Model manifest is invalid", {
+      new LenaError("invalid_input", {
         boundary: "ai.model-manifest",
       }),
     );

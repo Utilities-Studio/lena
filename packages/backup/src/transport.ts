@@ -11,6 +11,7 @@ import {
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { sha256ChecksumSchema } from "./checksum";
+import { backupSnapshotWatermarkSchema } from "./manifest";
 import {
   getRuntimeLocalCiphertextUri,
   isRuntimeRemoteObjectReceipt,
@@ -75,6 +76,7 @@ const persistedLocalGenerationVerificationClaimSchema = z.strictObject({
   provider: z.null(),
   providerObjectId: z.null(),
   providerObjectPath: z.null(),
+  snapshot: backupSnapshotWatermarkSchema,
   verifiedAt: isoTimestampSchema,
   vaultId: vaultIdSchema,
 });
@@ -88,6 +90,7 @@ const persistedRemoteGenerationVerificationClaimSchema = z.strictObject({
   provider: remoteBackupProviderSchema,
   providerObjectId: providerObjectIdSchema,
   providerObjectPath: providerObjectPathSchema,
+  snapshot: backupSnapshotWatermarkSchema,
   verifiedAt: isoTimestampSchema,
   vaultId: vaultIdSchema,
 });
@@ -121,9 +124,7 @@ export interface BackupTransportFailure {
 
 export function parseRemoteBackupProvider(value: unknown): Result<RemoteBackupProvider, LenaError> {
   const parsed = remoteBackupProviderSchema.safeParse(value);
-  return parsed.success
-    ? ok(parsed.data)
-    : err(new LenaError("invalid_input", "Invalid remote backup provider"));
+  return parsed.success ? ok(parsed.data) : err(new LenaError("invalid_input"));
 }
 
 /**
@@ -134,7 +135,7 @@ export function parsePersistedRemoteObjectReceiptClaim(
 ): Result<PersistedRemoteObjectReceiptClaim, LenaError> {
   const parsed = persistedRemoteObjectReceiptClaimSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid persisted remote object receipt"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);
@@ -152,25 +153,26 @@ export function createPersistedLocalVerificationClaim(
     provider: null,
     providerObjectId: null,
     providerObjectPath: null,
+    snapshot: input.snapshot,
     verifiedAt: input.verifiedAt,
     vaultId: input.vaultId,
   });
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid local verification claim"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);
 }
 
 /**
- * Parses durable provenance without adding it to the runtime verification WeakSet.
+ * Parses durable provenance without binding it to runtime-verified ciphertext bytes.
  */
 export function parsePersistedGenerationVerificationClaim(
   value: unknown,
 ): Result<PersistedGenerationVerificationClaim, LenaError> {
   const parsed = persistedGenerationVerificationClaimSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid persisted generation verification"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);

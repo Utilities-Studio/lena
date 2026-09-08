@@ -105,15 +105,15 @@ export function transitionSearchIndexRebuild(
         !isNonNegativeInteger(event.upsertedDocuments) ||
         !isNonNegativeInteger(event.removedDocuments)
       ) {
-        return err(new LenaError("invalid_input", "Rebuild batch counts are invalid"));
+        return err(new LenaError("invalid_input"));
       }
       if (event.upsertedDocuments === 0 && event.removedDocuments === 0) {
-        return err(new LenaError("invalid_input", "Rebuild batch must contain work"));
+        return err(new LenaError("invalid_input"));
       }
       const upsertedDocuments = state.checkpoint.upsertedDocuments + event.upsertedDocuments;
       const removedDocuments = state.checkpoint.removedDocuments + event.removedDocuments;
       if (!Number.isSafeInteger(upsertedDocuments) || !Number.isSafeInteger(removedDocuments)) {
-        return err(new LenaError("limit_exceeded", "Rebuild checkpoint count overflow"));
+        return err(new LenaError("limit_exceeded"));
       }
       return ok(
         Object.freeze({
@@ -131,7 +131,7 @@ export function transitionSearchIndexRebuild(
       const matching = requireActiveRebuild(state.rebuildId, event.rebuildId);
       if (matching.isErr()) return err(matching.error);
       if (!isNonNegativeInteger(event.documentCount)) {
-        return err(new LenaError("invalid_input", "Document count is invalid"));
+        return err(new LenaError("invalid_input"));
       }
       return ok(
         Object.freeze({
@@ -193,7 +193,7 @@ function requireActiveRebuild(
   return eventRebuildId.value === activeRebuildId
     ? ok(true)
     : err(
-        new LenaError("conflict", "Search event belongs to another rebuild", {
+        new LenaError("conflict", {
           boundary: "search_rebuild",
         }),
       );
@@ -238,7 +238,7 @@ function invalidTransition(
   event: SearchIndexRebuildEvent["type"],
 ): Result<never, LenaError> {
   return err(
-    new LenaError("invalid_state_transition", "Invalid search index transition", {
+    new LenaError("invalid_state_transition", {
       event,
       state: state.status,
     }),
@@ -252,7 +252,7 @@ function parseOpaqueValue(
 ): Result<string, LenaError> {
   const parsed = z.string().safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", `${name} must be a string`));
+    return err(new LenaError("invalid_input"));
   }
   const normalized = parsed.data.normalize("NFC").trim();
   if (
@@ -260,7 +260,7 @@ function parseOpaqueValue(
     normalized.length > maximumLength ||
     hasControlCharacter(normalized)
   ) {
-    return err(new LenaError("invalid_input", `${name} is invalid`));
+    return err(new LenaError("invalid_input"));
   }
   return ok(normalized);
 }

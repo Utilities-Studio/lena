@@ -7,7 +7,10 @@ import {
   transitionModelLifecycle,
 } from "../../src/index";
 
-const MODEL_ID = "018f3f5a-1d2c-7abc-8def-0123456789ab";
+const MODEL_ID = "11111111-1111-4111-8111-111111111111";
+const INSTALL_ID = "22222222-2222-4222-8222-222222222222";
+const OLD_INSTALL_ID = "33333333-3333-4333-8333-333333333333";
+const NEW_INSTALL_ID = "44444444-4444-4444-8444-444444444444";
 const HASH = "c".repeat(64);
 
 function manifest() {
@@ -34,25 +37,25 @@ function manifest() {
 describe("model lifecycle", () => {
   test("resumes an interrupted download from its durable checkpoint", () => {
     const installing = transitionModelLifecycle(ABSENT_MODEL, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       manifest: manifest(),
       type: "install_requested",
     });
     if (installing.isErr()) throw installing.error;
     const progressed = transitionModelLifecycle(installing.value, {
       downloadedBytes: 40,
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "download_progressed",
     });
     if (progressed.isErr()) throw progressed.error;
     const failed = transitionModelLifecycle(progressed.value, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       reasonCode: "temporarily_unavailable",
       type: "operation_failed",
     });
     if (failed.isErr()) throw failed.error;
     const resumed = transitionModelLifecycle(failed.value, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "retry_requested",
     });
 
@@ -64,26 +67,26 @@ describe("model lifecycle", () => {
 
   test("requires exact artifact length and hash before ready", () => {
     const installing = transitionModelLifecycle(ABSENT_MODEL, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       manifest: manifest(),
       type: "install_requested",
     });
     if (installing.isErr()) throw installing.error;
     const progressed = transitionModelLifecycle(installing.value, {
       downloadedBytes: 100,
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "download_progressed",
     });
     if (progressed.isErr()) throw progressed.error;
     const verifying = transitionModelLifecycle(progressed.value, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "download_completed",
     });
     if (verifying.isErr()) throw verifying.error;
     const rejected = transitionModelLifecycle(verifying.value, {
       actualByteLength: 100,
       actualSha256: "d".repeat(64),
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "verification_completed",
     });
 
@@ -94,16 +97,16 @@ describe("model lifecycle", () => {
       retryFrom: "download",
       status: "failed",
     });
-    if (rejected.isErr()) return;
+    if (rejected.isErr()) throw rejected.error;
     expect(
       transitionModelLifecycle(rejected.value, {
-        installId: "install-1",
+        installId: INSTALL_ID,
         type: "retry_requested",
       }).isOk(),
     ).toBe(false);
     expect(
       transitionModelLifecycle(rejected.value, {
-        installId: "install-1",
+        installId: INSTALL_ID,
         type: "artifact_discarded",
       }),
     ).toEqual(ok(ABSENT_MODEL));
@@ -111,7 +114,7 @@ describe("model lifecycle", () => {
 
   test("becomes available only after verification and never selects cloud fallback", () => {
     const installing = transitionModelLifecycle(ABSENT_MODEL, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       manifest: manifest(),
       type: "install_requested",
     });
@@ -123,19 +126,19 @@ describe("model lifecycle", () => {
     });
     const progressed = transitionModelLifecycle(installing.value, {
       downloadedBytes: 100,
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "download_progressed",
     });
     if (progressed.isErr()) throw progressed.error;
     const verifying = transitionModelLifecycle(progressed.value, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "download_completed",
     });
     if (verifying.isErr()) throw verifying.error;
     const ready = transitionModelLifecycle(verifying.value, {
       actualByteLength: 100,
       actualSha256: HASH,
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "verification_completed",
     });
     if (ready.isErr()) throw ready.error;
@@ -151,12 +154,12 @@ describe("model lifecycle", () => {
     });
 
     const evicting = transitionModelLifecycle(ready.value, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "eviction_requested",
     });
     if (evicting.isErr()) throw evicting.error;
     const evicted = transitionModelLifecycle(evicting.value, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "eviction_completed",
     });
     expect(evicted).toEqual(ok(ABSENT_MODEL));
@@ -164,7 +167,7 @@ describe("model lifecycle", () => {
 
   test("rejects impossible lifecycle transitions", () => {
     const invalid = transitionModelLifecycle(ABSENT_MODEL, {
-      installId: "install-1",
+      installId: INSTALL_ID,
       type: "download_completed",
     });
     expect(invalid.isOk()).toBe(false);
@@ -173,24 +176,24 @@ describe("model lifecycle", () => {
 
   test("rejects late events from an earlier installation", () => {
     const first = transitionModelLifecycle(ABSENT_MODEL, {
-      installId: "install-old",
+      installId: OLD_INSTALL_ID,
       manifest: manifest(),
       type: "install_requested",
     });
     if (first.isErr()) throw first.error;
     const failed = transitionModelLifecycle(first.value, {
-      installId: "install-old",
+      installId: OLD_INSTALL_ID,
       reasonCode: "integrity_failed",
       type: "operation_failed",
     });
     if (failed.isErr()) throw failed.error;
     const absent = transitionModelLifecycle(failed.value, {
-      installId: "install-old",
+      installId: OLD_INSTALL_ID,
       type: "artifact_discarded",
     });
     if (absent.isErr()) throw absent.error;
     const replacement = transitionModelLifecycle(absent.value, {
-      installId: "install-new",
+      installId: NEW_INSTALL_ID,
       manifest: manifest(),
       type: "install_requested",
     });
@@ -199,7 +202,7 @@ describe("model lifecycle", () => {
     expect(
       transitionModelLifecycle(replacement.value, {
         downloadedBytes: 100,
-        installId: "install-old",
+        installId: OLD_INSTALL_ID,
         type: "download_progressed",
       }).isOk(),
     ).toBe(false);

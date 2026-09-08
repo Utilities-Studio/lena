@@ -11,11 +11,9 @@ import { parseVectorIndexMetadata, type VectorIndexMetadata } from "./vector";
 import { orderBy } from "es-toolkit";
 import { z } from "zod";
 
-declare const fingerprintBrand: unique symbol;
+const searchIndexFingerprintSchema = z.string().brand<"SearchIndexFingerprint">();
 
-export type SearchIndexFingerprint = string & {
-  readonly [fingerprintBrand]: "SearchIndexFingerprint";
-};
+export type SearchIndexFingerprint = z.infer<typeof searchIndexFingerprintSchema>;
 
 export type TokenizerOptionValue = boolean | number | string;
 
@@ -57,7 +55,7 @@ export function createSearchIndexIdentity(value: unknown): Result<SearchIndexIde
   const record = indexDefinitionShapeSchema.safeParse(value);
   if (!record.success) {
     return err(
-      new LenaError("invalid_input", "Search index definition shape is invalid", {
+      new LenaError("invalid_input", {
         boundary: "search.index-definition",
       }),
     );
@@ -101,7 +99,9 @@ export function createSearchIndexIdentity(value: unknown): Result<SearchIndexIde
             modelVersion: definition.vector.modelVersion,
           },
   };
-  const fingerprint = `lena-search-index:v1:${JSON.stringify(canonical)}` as SearchIndexFingerprint;
+  const fingerprint = searchIndexFingerprintSchema.parse(
+    `lena-search-index:v1:${JSON.stringify(canonical)}`,
+  );
 
   return ok(
     Object.freeze({
@@ -123,7 +123,7 @@ function parseTokenizer(value: unknown): Result<SearchTokenizerIdentity, LenaErr
   const record = tokenizerShapeSchema.safeParse(value);
   if (!record.success) {
     return err(
-      new LenaError("invalid_input", "Tokenizer identity shape is invalid", {
+      new LenaError("invalid_input", {
         boundary: "search.tokenizer-identity",
       }),
     );
@@ -139,7 +139,7 @@ function parseTokenizer(value: unknown): Result<SearchTokenizerIdentity, LenaErr
   const entries = orderBy(Object.entries(optionRecord.value), [([key]) => key], ["asc"]);
   if (entries.length > MAX_TOKENIZER_OPTIONS) {
     return err(
-      new LenaError("limit_exceeded", "Too many tokenizer options", {
+      new LenaError("limit_exceeded", {
         maximum: MAX_TOKENIZER_OPTIONS,
       }),
     );
@@ -148,14 +148,14 @@ function parseTokenizer(value: unknown): Result<SearchTokenizerIdentity, LenaErr
   const normalizedEntries: [string, TokenizerOptionValue][] = [];
   for (const [key, option] of entries) {
     if (!OPTION_KEY_PATTERN.test(key)) {
-      return err(new LenaError("invalid_input", "Tokenizer option key is invalid"));
+      return err(new LenaError("invalid_input"));
     }
     if (
       (typeof option !== "boolean" && typeof option !== "number" && typeof option !== "string") ||
       (typeof option === "number" && !Number.isFinite(option)) ||
       (typeof option === "string" && option.length > 256)
     ) {
-      return err(new LenaError("invalid_input", "Tokenizer option value is invalid"));
+      return err(new LenaError("invalid_input"));
     }
     normalizedEntries.push([key, option]);
   }
@@ -169,13 +169,13 @@ function parseTokenizer(value: unknown): Result<SearchTokenizerIdentity, LenaErr
   );
 }
 
-function parseToken(value: unknown, name: string): Result<string, LenaError> {
+function parseToken(value: unknown, _name: string): Result<string, LenaError> {
   if (typeof value !== "string") {
-    return err(new LenaError("invalid_input", `${name} must be a string`));
+    return err(new LenaError("invalid_input"));
   }
   const normalized = value.normalize("NFC").trim();
   if (!TOKEN_PATTERN.test(normalized)) {
-    return err(new LenaError("invalid_input", `${name} is invalid`));
+    return err(new LenaError("invalid_input"));
   }
   return ok(normalized);
 }

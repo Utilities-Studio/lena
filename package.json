@@ -1,33 +1,35 @@
 {
-  "name": "lena",
-  "version": "0.0.0",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "type": "module",
-  "scripts": {
-    "audit": "knip",
-    "build": "tsdown --workspace",
-    "check": "bun run format:check && bun run build && bun run lint && bun run test && bun run audit",
-    "format": "oxfmt --write .",
-    "format:check": "oxfmt --check .",
-    "lint": "oxlint --type-aware --type-check packages tsdown.config.ts",
-    "test": "bun test packages"
-  },
-  "devDependencies": {
-    "@arethetypeswrong/core": "0.18.5",
-    "@changesets/cli": "3.0.1",
-    "@types/bun": "1.4.0",
-    "fast-check": "4.9.0",
-    "knip": "6.34.0",
-    "lefthook": "2.1.12",
-    "oxfmt": "0.66.0",
-    "oxlint": "1.81.0",
-    "oxlint-tsgolint": "7.0.2001",
-    "publint": "0.3.24",
-    "tsdown": "0.22.14",
-    "typescript": "7.0.2"
-  },
-  "packageManager": "bun@1.4.0"
+	"name": "lena",
+	"version": "0.0.0",
+	"private": true,
+	"workspaces": [
+		"packages/*"
+	],
+	"type": "module",
+	"scripts": {
+		"audit": "knip",
+		"build": "tsdown --workspace",
+		"check": "bun run format:check && bun run build && bun run lint && bun run test && bun run audit",
+		"format": "oxfmt --write .",
+		"format:check": "oxfmt --check .",
+		"lint": "oxlint --type-aware --type-check packages tsdown.config.ts",
+		"schema:export": "drizzle-kit export --dialect sqlite --schema packages/vault/src/drizzle-schema.ts",
+		"test": "bun test packages"
+	},
+	"devDependencies": {
+		"@arethetypeswrong/core": "0.18.5",
+		"@changesets/cli": "3.0.1",
+		"@types/bun": "1.4.0",
+		"drizzle-kit": "0.31.10",
+		"fast-check": "4.9.0",
+		"knip": "6.34.0",
+		"lefthook": "2.1.12",
+		"oxfmt": "0.66.0",
+		"oxlint": "1.81.0",
+		"oxlint-tsgolint": "7.0.2001",
+		"publint": "0.3.24",
+		"tsdown": "0.22.14",
+		"typescript": "7.0.2"
+	},
+	"packageManager": "bun@1.4.0"
 }

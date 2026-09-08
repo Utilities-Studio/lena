@@ -23,6 +23,16 @@ import {
 
 const FIRST_TIME = "2026-09-01T08:00:00.000Z";
 const SECOND_TIME = "2026-09-01T08:01:00.000Z";
+const CHANGE_1 = "11111111-1111-4111-8111-111111111111";
+const CHANGE_2 = "22222222-2222-4222-8222-222222222222";
+const REPLICA_1 = "33333333-3333-4333-8333-333333333333";
+const REPLICA_2 = "44444444-4444-4444-8444-444444444444";
+const REQUEST_1 = "55555555-5555-4555-8555-555555555555";
+const REQUEST_NEW = "66666666-6666-4666-8666-666666666666";
+const REQUEST_OLD = "77777777-7777-4777-8777-777777777777";
+const CONSENT_1 = "88888888-8888-4888-8888-888888888888";
+const CHECKPOINT_1 = "99999999-9999-4999-8999-999999999999";
+const TOMBSTONE_1 = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function timestamp(value: string): IsoTimestamp {
   const parsed = parseIsoTimestamp(value);
@@ -33,14 +43,14 @@ function timestamp(value: string): IsoTimestamp {
 function change(overrides: Readonly<Record<string, unknown>> = {}): SyncChangeMetadata {
   const parsed = parseSyncChangeMetadata({
     baseRevision: 0,
-    changeId: "change-1",
+    changeId: CHANGE_1,
     changedAt: FIRST_TIME,
     contentDigest: "sha256:aaaaaaaa",
     entityId: "entry-1",
     entityType: "journal_entry",
     kind: "sync_change",
     protocolVersion: 1,
-    replicaId: "replica-1",
+    replicaId: REPLICA_1,
     revision: 1,
     schemaVersion: 1,
     ...overrides,
@@ -99,12 +109,12 @@ describe("explicit consent", () => {
   test("rejects stale request replacement and preserves a request high-watermark", () => {
     const newer = createHostedSyncConsentRequest({
       disclosureVersion: "privacy-v2",
-      requestId: "request-new",
+      requestId: REQUEST_NEW,
       requestedAt: SECOND_TIME,
     });
     const older = createHostedSyncConsentRequest({
       disclosureVersion: "privacy-v1",
-      requestId: "request-old",
+      requestId: REQUEST_OLD,
       requestedAt: FIRST_TIME,
     });
     if (newer.isErr() || older.isErr()) throw new Error("Expected valid consent requests");
@@ -131,16 +141,16 @@ describe("explicit consent", () => {
   test("requires a matching request and explicit confirmation", () => {
     const implicit = createExplicitHostedSyncConsentGrant({
       confirmation: "implicit",
-      consentId: "consent-1",
+      consentId: CONSENT_1,
       disclosureVersion: "privacy-v1",
       grantedAt: SECOND_TIME,
-      requestId: "request-1",
+      requestId: REQUEST_1,
     });
     expect(implicit.isOk()).toBe(false);
 
     const request = createHostedSyncConsentRequest({
       disclosureVersion: "privacy-v1",
-      requestId: "request-1",
+      requestId: REQUEST_1,
       requestedAt: FIRST_TIME,
     });
     if (request.isErr()) throw request.error;
@@ -152,10 +162,10 @@ describe("explicit consent", () => {
 
     const grant = createExplicitHostedSyncConsentGrant({
       confirmation: "explicit",
-      consentId: "consent-1",
+      consentId: CONSENT_1,
       disclosureVersion: "privacy-v1",
       grantedAt: SECOND_TIME,
-      requestId: "request-1",
+      requestId: REQUEST_1,
     });
     if (grant.isErr()) throw grant.error;
     const granted = reduceSyncConsent(requested.value, grant.value);
@@ -169,15 +179,15 @@ describe("explicit consent", () => {
   test("withdrawal returns to Private Vault without any data operation", () => {
     const request = createHostedSyncConsentRequest({
       disclosureVersion: "privacy-v1",
-      requestId: "request-1",
+      requestId: REQUEST_1,
       requestedAt: FIRST_TIME,
     });
     const grant = createExplicitHostedSyncConsentGrant({
       confirmation: "explicit",
-      consentId: "consent-1",
+      consentId: CONSENT_1,
       disclosureVersion: "privacy-v1",
       grantedAt: SECOND_TIME,
-      requestId: "request-1",
+      requestId: REQUEST_1,
     });
     if (request.isErr() || grant.isErr()) throw new Error("Expected valid consent data");
     const requested = reduceSyncConsent(INITIAL_SYNC_CONSENT_STATE, {
@@ -187,7 +197,7 @@ describe("explicit consent", () => {
     if (requested.isErr()) throw requested.error;
     const granted = reduceSyncConsent(requested.value, grant.value);
     if (granted.isErr()) throw granted.error;
-    const consentId = parseSyncConsentId("consent-1");
+    const consentId = parseSyncConsentId(CONSENT_1);
     if (consentId.isErr()) throw consentId.error;
     const withdrawn = reduceSyncConsent(granted.value, {
       consentId: consentId.value,
@@ -203,10 +213,10 @@ describe("explicit consent", () => {
   test("cannot grant consent without an active matching request", () => {
     const grant = createExplicitHostedSyncConsentGrant({
       confirmation: "explicit",
-      consentId: "consent-1",
+      consentId: CONSENT_1,
       disclosureVersion: "privacy-v1",
       grantedAt: SECOND_TIME,
-      requestId: "request-1",
+      requestId: REQUEST_1,
     });
     if (grant.isErr()) throw grant.error;
     expect(reduceSyncConsent(INITIAL_SYNC_CONSENT_STATE, grant.value).isOk()).toBe(false);
@@ -216,11 +226,11 @@ describe("explicit consent", () => {
 describe("versioned sync metadata", () => {
   test("validates exact checkpoint and tombstone shapes", () => {
     const checkpoint = parseSyncCheckpoint({
-      checkpointId: "checkpoint-1",
+      checkpointId: CHECKPOINT_1,
       createdAt: FIRST_TIME,
       kind: "sync_checkpoint",
       protocolVersion: 1,
-      replicaId: "replica-1",
+      replicaId: REPLICA_1,
       schemaVersion: 1,
       sequence: 0,
     });
@@ -236,9 +246,9 @@ describe("versioned sync metadata", () => {
         entityType: "journal_entry",
         kind: "sync_tombstone",
         protocolVersion: 1,
-        replicaId: "replica-1",
+        replicaId: REPLICA_1,
         schemaVersion: 1,
-        tombstoneId: "tombstone-1",
+        tombstoneId: TOMBSTONE_1,
       }).isOk(),
     ).toBe(true);
   });
@@ -251,10 +261,10 @@ describe("versioned sync metadata", () => {
     const second: VersionedSyncRecord<string> = {
       metadata: change({
         baseRevision: 0,
-        changeId: "change-2",
+        changeId: CHANGE_2,
         changedAt: SECOND_TIME,
         contentDigest: "sha256:bbbbbbbb",
-        replicaId: "replica-2",
+        replicaId: REPLICA_2,
       }),
       value: "second",
     };
@@ -277,16 +287,16 @@ describe("versioned sync metadata", () => {
     };
     const second: VersionedSyncRecord<string> = {
       metadata: change({
-        changeId: "change-2",
+        changeId: CHANGE_2,
         changedAt: SECOND_TIME,
-        replicaId: "replica-2",
+        replicaId: REPLICA_2,
       }),
       value: "same",
     };
     const outcome = resolveSyncConflict(first, second);
     expect(outcome.isOk() && outcome.value).toMatchObject({
       kind: "merged_identical",
-      selected: { metadata: { changeId: "change-2" } },
+      selected: { metadata: { changeId: CHANGE_2 } },
     });
   });
 });
@@ -306,6 +316,6 @@ test("Private Vault package sources do not import the sync package", async () =>
 });
 
 test("consent request identifiers remain validated independently", () => {
-  expect(parseSyncConsentRequestId("request-1").isOk()).toBe(true);
-  expect(parseSyncConsentId("request-1").isOk()).toBe(true);
+  expect(parseSyncConsentRequestId(REQUEST_1).isOk()).toBe(true);
+  expect(parseSyncConsentId(REQUEST_1).isOk()).toBe(true);
 });

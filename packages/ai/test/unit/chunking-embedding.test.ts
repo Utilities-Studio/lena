@@ -8,7 +8,7 @@ import {
   validateEmbeddingOutput,
 } from "../../src/index";
 
-const MODEL_ID = "018f3f5a-1d2c-7abc-8def-0123456789ab";
+const MODEL_ID = "11111111-1111-4111-8111-111111111111";
 
 function embeddingManifest(version = "1.0.0") {
   const manifest = parseModelManifest({
@@ -70,10 +70,14 @@ describe("deterministic chunking", () => {
       sourceRevision: "revision-2",
       text: "same text",
     });
-    if (first.isErr() || second.isErr() || !first.value[0] || !second.value[0]) return;
-    expect(first.value[0].text).toBe(second.value[0].text);
-    expect(first.value[0].chunkIdentity).not.toBe(second.value[0].chunkIdentity);
-    expect(isChunkCurrent(first.value[0], "entry-7", "revision-2")).toBe(false);
+    if (first.isErr()) throw first.error;
+    if (second.isErr()) throw second.error;
+    const firstChunk = first.value[0];
+    const secondChunk = second.value[0];
+    if (!firstChunk || !secondChunk) throw new Error("Expected source chunks");
+    expect(firstChunk.text).toBe(secondChunk.text);
+    expect(firstChunk.chunkIdentity).not.toBe(secondChunk.chunkIdentity);
+    expect(isChunkCurrent(firstChunk, "entry-7", "revision-2")).toBe(false);
   });
 
   test("escapes identity separators so distinct sources cannot collide", () => {
@@ -91,8 +95,12 @@ describe("deterministic chunking", () => {
       sourceRevision: "7:revision",
       text: "text",
     });
-    if (left.isErr() || right.isErr() || !left.value[0] || !right.value[0]) return;
-    expect(left.value[0].chunkIdentity).not.toBe(right.value[0].chunkIdentity);
+    if (left.isErr()) throw left.error;
+    if (right.isErr()) throw right.error;
+    const leftChunk = left.value[0];
+    const rightChunk = right.value[0];
+    if (!leftChunk || !rightChunk) throw new Error("Expected source chunks");
+    expect(leftChunk.chunkIdentity).not.toBe(rightChunk.chunkIdentity);
   });
 });
 
@@ -113,19 +121,17 @@ describe("embedding validation", () => {
       sourceRevision: "revision-1",
       text: "private canonical text",
     });
-    if (chunks.isErr() || !chunks.value[0]) return;
+    if (chunks.isErr()) throw chunks.error;
+    const chunk = chunks.value[0];
+    if (!chunk) throw new Error("Expected a source chunk");
     const record = createDerivedEmbeddingRecord({
-      chunk: chunks.value[0],
+      chunk,
       embedding: [1, 0],
       manifest: embeddingManifest(),
     });
     if (record.isErr()) throw record.error;
 
-    expect(isDerivedEmbeddingCurrent(record.value, chunks.value[0], embeddingManifest())).toBe(
-      true,
-    );
-    expect(
-      isDerivedEmbeddingCurrent(record.value, chunks.value[0], embeddingManifest("2.0.0")),
-    ).toBe(false);
+    expect(isDerivedEmbeddingCurrent(record.value, chunk, embeddingManifest())).toBe(true);
+    expect(isDerivedEmbeddingCurrent(record.value, chunk, embeddingManifest("2.0.0"))).toBe(false);
   });
 });

@@ -10,8 +10,8 @@ Local lexical, semantic, and hybrid retrieval whose indexes are always rebuildab
 - Deterministic FTS result normalization.
 - Vector metadata and embedding-dimension validation.
 - Reciprocal-rank-fusion hybrid ranking.
-- Bounded SQL query plans that ask FTS5 and `sqlite-vec` for top candidates before JavaScript
-  fusion, never whole-index materialization.
+- An adapter-owned bounded FTS5 and `sqlite-vec` query built and executed through Drizzle, with
+  direct SQL limited to extension-specific MATCH and KNN syntax.
 - Index identity derived from schema, source projection, tokenizer, and model version.
 - Rebuild state machine with resumable checkpoints.
 
@@ -35,4 +35,6 @@ Local lexical, semantic, and hybrid retrieval whose indexes are always rebuildab
 
 ## Native gate
 
-Real FTS5 and `sqlite-vec` queries on both supported engines, then signed-device latency and memory benchmarks on realistic data volumes.
+The package does not expose a disconnected SQL string or parameter-array planner. The real keyed
+adapter must execute FTS5 and `sqlite-vec` through Drizzle, prove bounded candidate retrieval, and
+then pass signed-device latency and memory benchmarks on realistic data volumes.

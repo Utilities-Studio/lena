@@ -43,7 +43,7 @@ export type RetentionPolicy = z.infer<typeof retentionPolicySchema>;
 export type LastKnownGoodGeneration = VerifiedGeneration;
 
 const retentionPlanMarker = Symbol("lena.retention-plan");
-const authorizedRetentionPlans = new WeakSet<object>();
+const authorizedRetentionPlans = new WeakSet();
 
 export type RetentionPlan = Readonly<{
   readonly [retentionPlanMarker]: true;
@@ -67,7 +67,7 @@ export function validateRetentionPolicy(
   const parsed = retentionPolicySchema.safeParse(policy);
   if (!parsed.success) {
     return err(
-      new LenaError("invalid_input", "Invalid retention policy", {
+      new LenaError("invalid_input", {
         maximum: MAX_RETENTION_COUNT,
       }),
     );
@@ -85,13 +85,13 @@ export function planGenerationRetention(
 
   const vaultIds = uniq(generations.map((generation) => generation.vaultId));
   if (vaultIds.length > 1) {
-    return err(new LenaError("conflict", "Retention must be planned for exactly one vault"));
+    return err(new LenaError("conflict"));
   }
   const vaultId = generations[0]?.vaultId ?? null;
   const seenGenerationIds = new Set<GenerationId>();
   for (const generation of generations) {
     if (seenGenerationIds.has(generation.generationId)) {
-      return err(new LenaError("conflict", "Duplicate generation in retention inventory"));
+      return err(new LenaError("conflict"));
     }
     seenGenerationIds.add(generation.generationId);
     if (
@@ -100,9 +100,7 @@ export function planGenerationRetention(
         generation.verification.generationId !== generation.generationId ||
         generation.verification.vaultId !== generation.vaultId)
     ) {
-      return err(
-        new LenaError("integrity_failed", "Retention verification does not match generation"),
-      );
+      return err(new LenaError("integrity_failed"));
     }
   }
 
@@ -112,15 +110,13 @@ export function planGenerationRetention(
       vaultId === null ||
       lastKnownGood.vaultId !== vaultId
     ) {
-      return err(new LenaError("conflict", "Last-known-good belongs to another vault"));
+      return err(new LenaError("conflict"));
     }
     const record = generations.find(
       (generation) => generation.generationId === lastKnownGood.generationId,
     );
     if (record === undefined || record.verification !== lastKnownGood) {
-      return err(
-        new LenaError("integrity_failed", "Last-known-good generation is missing or unverified"),
-      );
+      return err(new LenaError("integrity_failed"));
     }
   }
 
@@ -154,12 +150,7 @@ export function planGenerationRetention(
     (item) => item.verification !== null && !keep.has(item.generationId),
   );
   if (deletable.length > 0 && lastKnownGood === null) {
-    return err(
-      new LenaError(
-        "invalid_state_transition",
-        "Retention cleanup requires a verified last-known-good generation",
-      ),
-    );
+    return err(new LenaError("invalid_state_transition"));
   }
 
   const plan = Object.freeze({

@@ -51,7 +51,7 @@ export function resolveSyncConflict<Value>(
     left.metadata.entityId !== right.metadata.entityId
   ) {
     return err(
-      new LenaError("invalid_input", "Sync records identify different entities", {
+      new LenaError("invalid_input", {
         boundary: "sync_conflict",
       }),
     );
@@ -59,22 +59,13 @@ export function resolveSyncConflict<Value>(
 
   if (left.metadata.protocolVersion !== right.metadata.protocolVersion) {
     return err(
-      new LenaError("incompatible_schema", "Sync protocol versions differ", {
+      new LenaError("incompatible_schema", {
         boundary: "sync_conflict",
       }),
     );
   }
 
-  const ordered = [left, right].toSorted(compareVersions);
-  const first = ordered[0];
-  const second = ordered[1];
-  if (first === undefined || second === undefined) {
-    return err(
-      new LenaError("internal", "Sync conflict inputs are incomplete", {
-        boundary: "sync_conflict",
-      }),
-    );
-  }
+  const [first, second] = compareVersions(left, right) <= 0 ? [left, right] : [right, left];
 
   if (first.metadata.contentDigest === second.metadata.contentDigest) {
     return ok(

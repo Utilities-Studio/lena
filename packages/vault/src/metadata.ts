@@ -53,7 +53,7 @@ export function parseVaultMetadata(value: unknown): Result<VaultMetadata, LenaEr
   const structure = vaultMetadataStructureSchema.safeParse(value);
   if (!structure.success) {
     return err(
-      new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+      new LenaError("invalid_input", {
         boundary: "vault_metadata",
       }),
     );
@@ -61,7 +61,7 @@ export function parseVaultMetadata(value: unknown): Result<VaultMetadata, LenaEr
 
   if (structure.data.formatVersion !== VAULT_METADATA_FORMAT_VERSION) {
     return err(
-      new LenaError("unsupported", "Unsupported vault metadata format", {
+      new LenaError("unsupported", {
         formatVersion:
           typeof structure.data.formatVersion === "number" ? structure.data.formatVersion : null,
       }),
@@ -73,24 +73,24 @@ export function parseVaultMetadata(value: unknown): Result<VaultMetadata, LenaEr
 
   const failedField = parsed.error.issues[0]?.path[0];
   if (failedField === "vaultId") {
-    return err(new LenaError("invalid_identifier", "Invalid VaultId", { kind: "VaultId" }));
+    return err(new LenaError("invalid_identifier", { kind: "VaultId" }));
   }
   if (failedField === "vaultInstanceId") {
     return err(
-      new LenaError("invalid_identifier", "Invalid VaultInstanceId", {
+      new LenaError("invalid_identifier", {
         kind: "VaultInstanceId",
       }),
     );
   }
   if (failedField === "createdAt") {
-    return err(new LenaError("invalid_timestamp", "Timestamp must be canonical UTC"));
+    return err(new LenaError("invalid_timestamp"));
   }
   if (failedField === "encryptionEnvelopeVersion") {
-    return err(new LenaError("invalid_input", "Encryption envelope version must be positive"));
+    return err(new LenaError("invalid_input"));
   }
 
   return err(
-    new LenaError("invalid_input", "Persisted record has missing or unexpected fields", {
+    new LenaError("invalid_input", {
       boundary: "vault_metadata",
     }),
   );

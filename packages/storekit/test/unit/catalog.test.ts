@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { reverse } from "es-toolkit/compat";
 
 import {
   createInitialStoreKitCatalogEntitlementState,
@@ -208,10 +209,10 @@ describe("monotonic sequence and deterministic reduction", () => {
       ),
     ];
     const ascending = reduce(events, configuredCatalog);
-    const descending = reduce(events.toReversed(), configuredCatalog);
+    const descending = reduce(reverse([...events]), configuredCatalog);
 
     let live = createInitialStoreKitCatalogEntitlementState(configuredCatalog);
-    for (const event of events.toReversed()) {
+    for (const event of reverse([...events])) {
       const next = reduceStoreKitCatalogEntitlement(live, event, configuredCatalog);
       if (next.isErr()) throw next.error;
       live = next.value;

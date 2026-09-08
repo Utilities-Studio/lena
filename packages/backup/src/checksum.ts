@@ -10,7 +10,7 @@ export type Sha256Checksum = z.infer<typeof sha256ChecksumSchema>;
 export function parseSha256Checksum(value: unknown): Result<Sha256Checksum, LenaError> {
   const parsed = sha256ChecksumSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Checksum must be a lowercase SHA-256 digest"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);

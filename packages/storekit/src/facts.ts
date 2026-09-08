@@ -17,12 +17,7 @@ import {
 import { isAfter, isBefore, parseISO } from "date-fns";
 import { z } from "zod";
 
-export const storeKitSequenceSchema = z
-  .number()
-  .int()
-  .safe()
-  .positive()
-  .brand<"StoreKitSequence">();
+export const storeKitSequenceSchema = z.int().positive().brand<"StoreKitSequence">();
 export const storeKitEntitlementDispositionSchema = z.enum([
   "active",
   "expired",
@@ -36,7 +31,7 @@ export type StoreKitEntitlementDisposition = z.infer<typeof storeKitEntitlementD
 export type StoreKitFactSource = z.infer<typeof storeKitFactSourceSchema>;
 
 const verifiedStoreKitFactBrand: unique symbol = Symbol("VerifiedStoreKitEntitlementFact");
-const verifiedStoreKitFacts = new WeakSet<object>();
+const verifiedStoreKitFacts = new WeakSet();
 
 export interface VerifiedStoreKitEntitlementFact {
   readonly [verifiedStoreKitFactBrand]: true;
@@ -52,7 +47,7 @@ export interface VerifiedStoreKitEntitlementFact {
 const nativeVerifiedFactShapeSchema = z.strictObject({
   disposition: storeKitEntitlementDispositionSchema,
   effectiveAt: isoTimestampSchema,
-  expiresAt: z.unknown().optional(),
+  expiresAt: isoTimestampSchema.nullable().optional(),
   observedAt: isoTimestampSchema,
   productId: storeKitProductIdSchema,
   sequence: storeKitSequenceSchema,
@@ -62,11 +57,7 @@ const nativeVerifiedFactShapeSchema = z.strictObject({
 export function parseStoreKitSequence(value: unknown): Result<StoreKitSequence, LenaError> {
   const parsed = storeKitSequenceSchema.safeParse(value);
   if (!parsed.success) {
-    return err(
-      new LenaError("invalid_input", "StoreKit sequence must be a positive safe integer", {
-        boundary: "storekit_sequence",
-      }),
-    );
+    return err(new LenaError("invalid_input", { boundary: "storekit_sequence" }));
   }
 
   return ok(parsed.data);
@@ -97,7 +88,7 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
   const record = nativeVerifiedFactShapeSchema.safeParse(input);
   if (!record.success) {
     return err(
-      new LenaError("invalid_input", "Verified StoreKit fact is invalid", {
+      new LenaError("invalid_input", {
         boundary: "storekit_native_verified_fact",
       }),
     );
@@ -109,7 +100,7 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
   }
   if (productId.value !== policy.productId) {
     return err(
-      new LenaError("invalid_input", "StoreKit product does not match policy", {
+      new LenaError("invalid_input", {
         boundary: "storekit_native_verified_fact",
         reason: "wrong_product",
       }),
@@ -130,7 +121,7 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
   }
   if (isBefore(parseISO(observedAt.value), parseISO(effectiveAt.value))) {
     return err(
-      new LenaError("invalid_input", "StoreKit fact predates its effect", {
+      new LenaError("invalid_input", {
         boundary: "storekit_native_verified_fact",
       }),
     );
@@ -143,7 +134,7 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
     const parsedExpiration = parseIsoTimestamp(record.data.expiresAt);
     if (parsedExpiration.isErr()) {
       return err(
-        new LenaError("invalid_input", "A subscription fact requires a valid expiration", {
+        new LenaError("invalid_input", {
           boundary: "storekit_native_verified_fact",
         }),
       );
@@ -153,7 +144,7 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
       !isAfter(parseISO(parsedExpiration.value), parseISO(effectiveAt.value))
     ) {
       return err(
-        new LenaError("invalid_input", "An active subscription must expire after its effect", {
+        new LenaError("invalid_input", {
           boundary: "storekit_native_verified_fact",
         }),
       );
@@ -163,7 +154,7 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
       isAfter(parseISO(parsedExpiration.value), parseISO(effectiveAt.value))
     ) {
       return err(
-        new LenaError("invalid_input", "A subscription cannot expire before its expiration", {
+        new LenaError("invalid_input", {
           boundary: "storekit_native_verified_fact",
         }),
       );
@@ -172,21 +163,22 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
   } else {
     if (disposition === "expired") {
       return err(
-        new LenaError("invalid_input", "A non-consumable product cannot expire", {
+        new LenaError("invalid_input", {
           boundary: "storekit_native_verified_fact",
         }),
       );
     }
     if (record.data.expiresAt !== undefined && record.data.expiresAt !== null) {
       return err(
-        new LenaError("invalid_input", "A non-consumable fact cannot have an expiration", {
+        new LenaError("invalid_input", {
           boundary: "storekit_native_verified_fact",
         }),
       );
     }
   }
 
-  const fact = {
+  const fact: VerifiedStoreKitEntitlementFact = {
+    [verifiedStoreKitFactBrand]: true,
     disposition,
     effectiveAt: effectiveAt.value,
     expiresAt,
@@ -194,14 +186,14 @@ export function createVerifiedStoreKitEntitlementFactFromNativeAdapter(
     productId: productId.value,
     sequence: sequence.value,
     source: record.data.source,
-  } as Record<PropertyKey, unknown>;
+  };
   Object.defineProperty(fact, verifiedStoreKitFactBrand, {
     configurable: false,
     enumerable: false,
     value: true,
     writable: false,
   });
-  const verifiedFact = Object.freeze(fact) as unknown as VerifiedStoreKitEntitlementFact;
+  const verifiedFact = Object.freeze(fact);
   verifiedStoreKitFacts.add(verifiedFact);
   return ok(verifiedFact);
 }

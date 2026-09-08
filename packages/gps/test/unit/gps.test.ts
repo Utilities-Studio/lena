@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ok } from "@lena/core";
+import { reverse as reverseArray } from "es-toolkit/compat";
 import { assert, integer, property } from "fast-check";
 
 import {
@@ -12,6 +13,7 @@ import {
   parseGpsAccuracyPolicy,
   parseGpsTransitionPolicy,
   parsePersistableCountryObservation,
+  countryResolutionSchema,
   reduceGpsTransition,
   reduceGpsTransitionEvents,
   resolveCountry,
@@ -23,6 +25,14 @@ import {
 } from "../../src/index";
 
 const BASE_TIME = "2026-09-01T08:00:00.000Z";
+const OBSERVATION_1 = "11111111-1111-4111-8111-111111111111";
+const OBSERVATION_2 = "22222222-2222-4222-8222-222222222222";
+const OBSERVATION_3 = "33333333-3333-4333-8333-333333333333";
+const OBSERVATION_4 = "44444444-4444-4444-8444-444444444444";
+const OBSERVATION_AUTH = "55555555-5555-4555-8555-555555555555";
+const OBSERVATION_COPY = "66666666-6666-4666-8666-666666666666";
+const OBSERVATION_STALE = "77777777-7777-4777-8777-777777777777";
+const MANUAL_CORRECTION = "88888888-8888-4888-8888-888888888888";
 
 function square(
   minimum: number,
@@ -154,7 +164,7 @@ describe("ephemeral country resolution", () => {
   });
 
   test("includes outer boundaries and excludes polygon holes", () => {
-    expect(resolveCountry(sample(0, 5), BASIC_DATASET)?.countryCode).toBe("AA");
+    expect(String(resolveCountry(sample(0, 5), BASIC_DATASET)?.countryCode)).toBe("AA");
     expect(resolveCountry(sample(5, 5), BASIC_DATASET)).toBeNull();
   });
 
@@ -177,8 +187,8 @@ describe("ephemeral country resolution", () => {
       ],
       version: "antimeridian-v1",
     });
-    expect(resolveCountry(sample(0, 179), antimeridian)?.countryCode).toBe("AM");
-    expect(resolveCountry(sample(0, -179), antimeridian)?.countryCode).toBe("AM");
+    expect(String(resolveCountry(sample(0, 179), antimeridian)?.countryCode)).toBe("AM");
+    expect(String(resolveCountry(sample(0, -179), antimeridian)?.countryCode)).toBe("AM");
   });
 
   test("selects overlaps by audited priority and reports no-country", () => {
@@ -205,14 +215,10 @@ describe("ephemeral country resolution", () => {
     expect(resolveCountry(sample(-20, -20), overlapping)).toBeNull();
   });
 
-  test("rejects structurally forged samples and boundary datasets", () => {
+  test("accepts schema-valid samples and rejects datasets without a built index", () => {
     const genuineSample = sample(2, 2);
-    expect(
-      resolveCountry({ ...genuineSample } as EphemeralCoordinateSample, BASIC_DATASET),
-    ).toBeNull();
-    expect(
-      resolveCountry(genuineSample, { ...BASIC_DATASET } as EphemeralCountryBoundaryDataset),
-    ).toBeNull();
+    expect(String(resolveCountry({ ...genuineSample }, BASIC_DATASET)?.countryCode)).toBe("AA");
+    expect(resolveCountry(genuineSample, { ...BASIC_DATASET })).toBeNull();
   });
 });
 
@@ -227,20 +233,27 @@ describe("coordinate-free observations", () => {
     const created = createPersistableCountryObservation({
       accuracyPolicy: accuracyPolicy.value,
       detectorVersion: "resolver-v1",
-      observationId: "observation-1",
+      observationId: OBSERVATION_1,
       resolution: resolution(inputSample),
       sample: inputSample,
     });
     if (created.isErr() || created.value === null) throw new Error("Expected value");
 
-    expect(created.value).toEqual({
+    expect({
+      ...created.value,
+      boundaryDatasetVersion: String(created.value.boundaryDatasetVersion),
+      countryCode: String(created.value.countryCode),
+      detectorVersion: String(created.value.detectorVersion),
+      observationId: String(created.value.observationId),
+      observedAt: String(created.value.observedAt),
+    }).toEqual({
       accuracyClass: "precise",
       boundaryDatasetVersion: "synthetic-v1",
       confidence: "high",
       countryCode: "BB",
       detectorVersion: "resolver-v1",
       kind: "country_observation",
-      observationId: "observation-1",
+      observationId: OBSERVATION_1,
       observedAt: BASE_TIME,
       schemaVersion: 1,
     });
@@ -256,13 +269,13 @@ describe("coordinate-free observations", () => {
     const created = createPersistableCountryObservation({
       accuracyPolicy: accuracyPolicy.value,
       detectorVersion: "resolver-v1",
-      observationId: "observation-2",
+      observationId: OBSERVATION_2,
       resolution: resolution(inputSample),
       sample: inputSample,
     });
     expect(created).toEqual(ok(null));
 
-    const valid = observation("BB", "observation-3", BASE_TIME);
+    const valid = observation("BB", OBSERVATION_3, BASE_TIME);
     expect(parsePersistableCountryObservation({ ...valid, latitude: 1 }).isOk()).toBe(false);
     expect(
       parsePersistableCountryObservation({
@@ -285,20 +298,20 @@ describe("coordinate-free observations", () => {
     const base = {
       accuracyPolicy: accuracyPolicy.value,
       detectorVersion: "resolver-v1",
-      observationId: "observation-auth",
+      observationId: OBSERVATION_AUTH,
       sample: originalSample,
     };
 
     expect(
       createPersistableCountryObservation({
         ...base,
-        resolution: { ...genuine } as CountryResolution,
+        resolution: { ...genuine },
       }).isOk(),
     ).toBe(false);
     expect(
       createPersistableCountryObservation({
         ...base,
-        resolution: JSON.parse(JSON.stringify(genuine)) as CountryResolution,
+        resolution: countryResolutionSchema.parse(JSON.parse(JSON.stringify(genuine))),
       }).isOk(),
     ).toBe(false);
     expect(
@@ -316,11 +329,11 @@ describe("review-first transition reducer", () => {
     const initial = createGpsTransitionState("AA");
     if (initial.isErr()) throw initial.error;
     const events = [
-      observation("BB", "observation-1", "2026-09-01T08:00:00.000Z"),
-      observation("BB", "observation-2", "2026-09-01T08:00:30.000Z"),
-      observation("BB", "observation-3", "2026-09-01T08:01:00.000Z"),
-      observation("BB", "observation-3", "2026-09-01T08:01:00.000Z"),
-      observation("BB", "observation-4", "2026-09-01T08:02:00.000Z"),
+      observation("BB", OBSERVATION_1, "2026-09-01T08:00:00.000Z"),
+      observation("BB", OBSERVATION_2, "2026-09-01T08:00:30.000Z"),
+      observation("BB", OBSERVATION_3, "2026-09-01T08:01:00.000Z"),
+      observation("BB", OBSERVATION_3, "2026-09-01T08:01:00.000Z"),
+      observation("BB", OBSERVATION_4, "2026-09-01T08:02:00.000Z"),
     ].map((value) => ({ observation: value, type: "observation" as const }));
 
     const reduction = reduceGpsTransitionEvents(initial.value, events, transitionPolicy());
@@ -331,24 +344,24 @@ describe("review-first transition reducer", () => {
       supportingObservationCount: 3,
       toCountry: "BB",
     });
-    expect(reduction.state.currentCountry).toBe("AA");
+    expect(String(reduction.state.currentCountry)).toBe("AA");
   });
 
   test("sorts replay deterministically and ignores stale input", () => {
     const initial = createGpsTransitionState("AA");
     if (initial.isErr()) throw initial.error;
     const events = [
-      observation("BB", "observation-1", "2026-09-01T08:00:00.000Z"),
-      observation("BB", "observation-2", "2026-09-01T08:00:30.000Z"),
-      observation("BB", "observation-3", "2026-09-01T08:01:00.000Z"),
+      observation("BB", OBSERVATION_1, "2026-09-01T08:00:00.000Z"),
+      observation("BB", OBSERVATION_2, "2026-09-01T08:00:30.000Z"),
+      observation("BB", OBSERVATION_3, "2026-09-01T08:01:00.000Z"),
     ].map((value) => ({ observation: value, type: "observation" as const }));
     const forward = reduceGpsTransitionEvents(initial.value, events, transitionPolicy());
-    const reverse = reduceGpsTransitionEvents(
+    const reversed = reduceGpsTransitionEvents(
       initial.value,
-      events.toReversed(),
+      reverseArray([...events]),
       transitionPolicy(),
     );
-    expect(forward).toEqual(reverse);
+    expect(forward).toEqual(reversed);
   });
 
   test("clears a bouncing candidate and ignores low confidence", () => {
@@ -357,7 +370,7 @@ describe("review-first transition reducer", () => {
     const first = reduceGpsTransition(
       initial.value,
       {
-        observation: observation("BB", "observation-1", "2026-09-01T08:00:00.000Z"),
+        observation: observation("BB", OBSERVATION_1, "2026-09-01T08:00:00.000Z"),
         type: "observation",
       },
       transitionPolicy(),
@@ -365,7 +378,7 @@ describe("review-first transition reducer", () => {
     const bounced = reduceGpsTransition(
       first.state,
       {
-        observation: observation("AA", "observation-2", "2026-09-01T08:00:30.000Z"),
+        observation: observation("AA", OBSERVATION_2, "2026-09-01T08:00:30.000Z"),
         type: "observation",
       },
       transitionPolicy(),
@@ -375,7 +388,7 @@ describe("review-first transition reducer", () => {
     const low = reduceGpsTransition(
       bounced.state,
       {
-        observation: observation("BB", "observation-3", "2026-09-01T08:01:00.000Z", "low"),
+        observation: observation("BB", OBSERVATION_3, "2026-09-01T08:01:00.000Z", "low"),
         type: "observation",
       },
       transitionPolicy(),
@@ -383,17 +396,17 @@ describe("review-first transition reducer", () => {
     expect(low.state.candidate).toBeNull();
   });
 
-  test("ignores a structurally forged persisted observation", () => {
+  test("accepts a strict coordinate-free observation after structural copying", () => {
     const initial = createGpsTransitionState("AA");
     if (initial.isErr()) throw initial.error;
-    const genuine = observation("BB", "observation-forged", BASE_TIME);
-    const forged = { ...genuine } as PersistableCountryObservation;
+    const genuine = observation("BB", OBSERVATION_COPY, BASE_TIME);
+    const forged = { ...genuine };
     const reduced = reduceGpsTransition(
       initial.value,
       { observation: forged, type: "observation" },
       transitionPolicy(),
     );
-    expect(reduced.state).toBe(initial.value);
+    expect(String(reduced.state.candidate?.countryCode)).toBe("BB");
     expect(reduced.effects).toEqual([]);
   });
 
@@ -403,14 +416,14 @@ describe("review-first transition reducer", () => {
     const candidate = reduceGpsTransition(
       initial.value,
       {
-        observation: observation("BB", "observation-1", "2026-09-01T08:00:00.000Z"),
+        observation: observation("BB", OBSERVATION_1, "2026-09-01T08:00:00.000Z"),
         type: "observation",
       },
       transitionPolicy(),
     );
     const correction = createGpsManualCorrection({
       correctedAt: "2026-09-01T08:00:30.000Z",
-      correctionId: "manual-1",
+      correctionId: MANUAL_CORRECTION,
       countryCode: "BB",
     });
     if (correction.isErr()) throw correction.error;
@@ -428,7 +441,7 @@ describe("review-first transition reducer", () => {
     const stale = reduceGpsTransition(
       corrected.state,
       {
-        observation: observation("AA", "observation-stale", "2026-09-01T08:00:15.000Z"),
+        observation: observation("AA", OBSERVATION_STALE, "2026-09-01T08:00:15.000Z"),
         type: "observation",
       },
       transitionPolicy(),

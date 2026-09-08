@@ -37,4 +37,5 @@ export {
   type VerifiedStoreKitEntitlementFact,
 } from "./facts";
 export * from "./operations";
+export * from "./expo-iap-runtime";
 export * from "./policy";

@@ -146,6 +146,7 @@ export type BackupAttemptEvent =
       at: IsoTimestamp;
       claimId: EffectId;
       receipt: RemoteObjectReceipt;
+      sourceVerification: VerifiedGeneration;
       type: "verify-remote";
     }>
   | Readonly<{ at: IsoTimestamp; failureCode: BackupFailureCode; type: "fail" }>
@@ -225,7 +226,7 @@ export const backupAttemptSchema = z
 
 export type PersistedBackupAttempt = z.infer<typeof backupAttemptSchema>;
 
-const runtimeClaimedBackupAttempts = new WeakSet<object>();
+const runtimeClaimedBackupAttempts = new WeakSet();
 
 export function isRuntimeClaimedBackupAttempt(
   value: unknown,
@@ -250,9 +251,7 @@ function invalidBackupTransition(
   state: BackupAttempt["state"],
   event: BackupAttemptEvent["type"],
 ): Result<never, LenaError> {
-  return err(
-    new LenaError("invalid_state_transition", "Invalid backup state transition", { event, state }),
-  );
+  return err(new LenaError("invalid_state_transition", { event, state }));
 }
 
 function validObjectByteLength(value: number): boolean {
@@ -272,7 +271,7 @@ export function reduceBackupAttempt(
   event: BackupAttemptEvent,
 ): Result<BackupAttempt, LenaError> {
   if (compareIsoTimestamps(event.at, attempt.updatedAt) < 0) {
-    return err(new LenaError("invalid_timestamp", "Backup event predates durable checkpoint"));
+    return err(new LenaError("invalid_timestamp"));
   }
   const base = {
     generationId: attempt.generationId,
@@ -291,7 +290,7 @@ export function reduceBackupAttempt(
         return invalidBackupTransition(attempt.state, nextEvent.type);
       }
       if (!validObjectByteLength(nextEvent.objectByteLength)) {
-        return err(new LenaError("invalid_input", "Invalid locally verified byte length"));
+        return err(new LenaError("invalid_input"));
       }
       return ok(
         Object.freeze({
@@ -338,22 +337,22 @@ export function reduceBackupAttempt(
         return invalidBackupTransition(attempt.state, nextEvent.type);
       }
       if (!isRuntimeClaimedBackupAttempt(attempt)) {
-        return err(new LenaError("integrity_failed", "Upload attempt lacks runtime claim"));
+        return err(new LenaError("integrity_failed"));
       }
       if (nextEvent.claimId !== attempt.claimId) {
-        return err(new LenaError("conflict", "Upload claim no longer owns this attempt"));
+        return err(new LenaError("conflict"));
       }
       if (!validRemoteObjectId(nextEvent.remoteObjectId)) {
-        return err(new LenaError("invalid_input", "Invalid remote object id"));
+        return err(new LenaError("invalid_input"));
       }
       if (!validRemoteObjectPath(nextEvent.remoteObjectPath)) {
-        return err(new LenaError("invalid_input", "Invalid remote object path"));
+        return err(new LenaError("invalid_input"));
       }
       if (
         nextEvent.remoteObjectPath !==
         `vaults/${attempt.vaultId}/generations/${attempt.generationId}.lena`
       ) {
-        return err(new LenaError("conflict", "Remote object path does not match generation"));
+        return err(new LenaError("conflict"));
       }
       const uploaded = Object.freeze({
         ...base,
@@ -373,16 +372,16 @@ export function reduceBackupAttempt(
         return invalidBackupTransition(attempt.state, nextEvent.type);
       }
       if (nextEvent.claimId !== attempt.claimId) {
-        return err(new LenaError("conflict", "Upload verification claim is stale"));
+        return err(new LenaError("conflict"));
       }
       if (!isRuntimeClaimedBackupAttempt(attempt)) {
-        return err(new LenaError("integrity_failed", "Upload attempt lacks runtime claim"));
+        return err(new LenaError("integrity_failed"));
       }
       if (!isRuntimeRemoteObjectReceipt(nextEvent.receipt)) {
-        return err(new LenaError("integrity_failed", "Remote receipt lacks runtime verification"));
+        return err(new LenaError("integrity_failed"));
       }
       if (nextEvent.receipt.verifiedAt !== nextEvent.at) {
-        return err(new LenaError("integrity_failed", "Remote receipt timestamp is not current"));
+        return err(new LenaError("integrity_failed"));
       }
       const verification = createRuntimeRemoteVerifiedGeneration({
         activeClaimId: attempt.claimId,
@@ -394,6 +393,7 @@ export function reduceBackupAttempt(
         expectedProviderObjectPath: attempt.remoteObjectPath,
         expectedVaultId: attempt.vaultId,
         receipt: nextEvent.receipt,
+        sourceVerification: nextEvent.sourceVerification,
       });
       if (verification.isErr()) return err(verification.error);
       return ok(
@@ -406,7 +406,7 @@ export function reduceBackupAttempt(
     })
     .with({ type: "fail" }, (nextEvent) => {
       if (!backupFailureCodeSchema.safeParse(nextEvent.failureCode).success) {
-        return err(new LenaError("invalid_input", "Invalid backup failure code"));
+        return err(new LenaError("invalid_input"));
       }
       const resume = getBackupResumeCheckpoint(attempt);
       if (resume === null) {
@@ -485,7 +485,7 @@ function getBackupResumeCheckpoint(attempt: BackupAttempt): BackupResumeCheckpoi
 export function parseBackupAttempt(value: unknown): Result<BackupAttempt, LenaError> {
   const parsed = backupAttemptSchema.safeParse(value);
   if (!parsed.success) {
-    return err(new LenaError("invalid_input", "Invalid persisted backup attempt"));
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);

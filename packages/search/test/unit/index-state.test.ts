@@ -10,7 +10,7 @@ import {
   validateEmbeddingForIndex,
 } from "../../src/index";
 
-const MODEL_ID = "018f3f5a-1d2c-7abc-8def-0123456789ab";
+const MODEL_ID = "11111111-1111-4111-8111-111111111111";
 
 function indexIdentity(dimensions = 384) {
   const identity = createSearchIndexIdentity({
@@ -98,8 +98,11 @@ describe("rebuild lifecycle", () => {
       type: "resume_requested",
     });
 
-    expect(resumed.isOk() && resumed.value.status).toBe("rebuilding");
-    if (resumed.isErr() || resumed.value.status !== "rebuilding") return;
+    if (resumed.isErr()) throw resumed.error;
+    expect(resumed.value.status).toBe("rebuilding");
+    if (resumed.value.status !== "rebuilding") {
+      throw new Error("Expected a rebuilding search index state");
+    }
     expect(resumed.value.checkpoint).toEqual({
       cursor: "entry-100",
       removedDocuments: 2,

@@ -23,15 +23,14 @@ import {
   validateManualBackupFileIdentity,
 } from "../../src/index";
 
-const GENERATION_UUID = "018f3f5a-1d2c-7abc-8def-2123456789ab";
-const CLAIM_UUID = "018f3f5a-1d2c-7abc-8def-3123456789ab";
+const GENERATION_UUID = "22222222-2222-4222-8222-222222222222";
+const CLAIM_UUID = "33333333-3333-4333-8333-333333333333";
 const LOCAL_CIPHERTEXT_URI = "file:///verified/manual-generation.lena";
 
 function manifest() {
   const parsed = parseGenerationManifest({
     applicationVersion: "1.0.0",
     completedAt: "2026-09-01T08:16:30.000Z",
-    compatibleSchema: { maximum: 1, minimum: 1 },
     createdAt: "2026-09-01T08:15:30.000Z",
     encryption: {
       algorithm: "AES-256-GCM",
@@ -51,7 +50,13 @@ function manifest() {
     },
     reason: "manual",
     schemaVersion: 1,
-    vaultId: "018f3f5a-1d2c-7abc-8def-0123456789ab",
+    snapshot: {
+      commitSequence: 1,
+      committedAt: "2026-09-01T08:15:30.000Z",
+      mutationId: "44444444-4444-4444-8444-444444444444",
+      vaultInstanceId: "55555555-5555-4555-8555-555555555555",
+    },
+    vaultId: "11111111-1111-4111-8111-111111111111",
   });
   if (parsed.isErr()) throw parsed.error;
   return parsed.value;
@@ -67,6 +72,7 @@ function verification() {
     localCiphertextUri: LOCAL_CIPHERTEXT_URI,
     objectByteLength: 148,
     objectChecksum: checksum.value,
+    snapshot: generation.snapshot,
     verifiedAt: verifiedAt.value,
     vaultId: generation.vaultId,
   });
@@ -102,6 +108,7 @@ function remoteVerification(): VerifiedGeneration {
     expectedProviderObjectPath: getGenerationObjectPath(generation),
     expectedVaultId: generation.vaultId,
     receipt: receipt.value,
+    sourceVerification: verification(),
   });
   if (remote.isErr()) throw remote.error;
   return remote.value;
@@ -111,7 +118,7 @@ describe("manual backup", () => {
   test("exports only the encrypted generation artifact", () => {
     const descriptor = createManualBackupExportDescriptor(manifest(), verification());
     expect(descriptor.isOk()).toBe(true);
-    if (descriptor.isErr()) return;
+    if (descriptor.isErr()) throw descriptor.error;
     expect(descriptor.value.encrypted).toBe(true);
     expect(descriptor.value.mediaType).toBe(LENA_BACKUP_MEDIA_TYPE);
     expect(descriptor.value.objectByteLength).toBe(148);
@@ -125,6 +132,7 @@ describe("manual backup", () => {
       generationId: local.generationId,
       objectByteLength: local.objectByteLength,
       objectChecksum: local.objectChecksum,
+      snapshot: local.snapshot,
       verifiedAt: local.verifiedAt,
       vaultId: local.vaultId,
     });
@@ -146,11 +154,7 @@ describe("manual backup", () => {
     ).toBe(false);
 
     expect(createManualBackupExportDescriptor(manifest(), remoteVerification()).isOk()).toBe(false);
-    expect(
-      createManualBackupExportDescriptor(manifest(), {
-        ...local,
-      } as unknown as VerifiedGeneration).isOk(),
-    ).toBe(false);
+    expect(createManualBackupExportDescriptor(manifest(), { ...local }).isOk()).toBe(false);
   });
 
   test("preflights trusted shape before staging", () => {
@@ -243,7 +247,7 @@ describe("manual backup", () => {
     if (selected.isErr()) throw selected.error;
     const cancelled = reduceManualBackupImportAttempt(selected.value, { type: "cancel" });
     expect(cancelled).toEqual(ok({ state: "cancelled" }));
-    if (cancelled.isErr()) return;
+    if (cancelled.isErr()) throw cancelled.error;
     expect(reduceManualBackupImportAttempt(cancelled.value, { type: "begin-copy" }).isOk()).toBe(
       false,
     );

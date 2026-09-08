@@ -2,6 +2,8 @@ export * from "./checksum";
 export * from "./discovery";
 export * from "./lifecycle";
 export * from "./manifest";
+export * from "./provider-plans";
 export * from "./restore";
 export * from "./retention";
 export * from "./transport";
+export * from "./vault-completion";

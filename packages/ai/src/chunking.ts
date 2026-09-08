@@ -4,77 +4,56 @@ import { z } from "zod";
 export const MAX_CHUNK_CODE_POINTS = 65_536;
 export const MAX_SOURCE_CODE_POINTS = 10_000_000;
 
-export interface ChunkTextInput {
-  readonly maximumCodePoints: number;
-  readonly overlapCodePoints: number;
-  readonly sourceId: string;
-  readonly sourceRevision: string;
-  readonly text: string;
-}
-
-export interface TextChunk {
-  readonly chunkIdentity: string;
-  readonly endCodePoint: number;
-  readonly index: number;
-  readonly sourceId: string;
-  readonly sourceRevision: string;
-  readonly startCodePoint: number;
-  readonly text: string;
-}
-
 const SOURCE_IDENTITY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/;
-const chunkTextInputShapeSchema = z.strictObject({
-  maximumCodePoints: z.unknown(),
-  overlapCodePoints: z.unknown(),
-  sourceId: z.unknown(),
-  sourceRevision: z.unknown(),
-  text: z.unknown(),
-});
-const sourceIdentitySchema = z
+export const sourceIdentitySchema = z
   .string()
   .transform((value) => value.normalize("NFC").trim())
   .pipe(z.string().regex(SOURCE_IDENTITY_PATTERN));
 
-export function chunkText(input: ChunkTextInput): Result<readonly TextChunk[], LenaError> {
-  const parsedInput = chunkTextInputShapeSchema.safeParse(input);
+export const chunkTextInputSchema = z
+  .strictObject({
+    maximumCodePoints: z.number().int().safe().min(1).max(MAX_CHUNK_CODE_POINTS),
+    overlapCodePoints: z.number().int().safe().nonnegative(),
+    sourceId: sourceIdentitySchema,
+    sourceRevision: sourceIdentitySchema,
+    text: z.string(),
+  })
+  .superRefine((input, context) => {
+    if (input.overlapCodePoints >= input.maximumCodePoints) {
+      context.addIssue({
+        code: "custom",
+        message: "overlap_must_be_smaller_than_chunk",
+        path: ["overlapCodePoints"],
+      });
+    }
+  })
+  .readonly();
+
+export const textChunkSchema = z
+  .strictObject({
+    chunkIdentity: z.string().min(1).max(1_024),
+    endCodePoint: z.number().int().safe().nonnegative(),
+    index: z.number().int().safe().nonnegative(),
+    sourceId: sourceIdentitySchema,
+    sourceRevision: sourceIdentitySchema,
+    startCodePoint: z.number().int().safe().nonnegative(),
+    text: z.string(),
+  })
+  .readonly();
+
+export type ChunkTextInput = z.input<typeof chunkTextInputSchema>;
+export type TextChunk = z.output<typeof textChunkSchema>;
+
+export function chunkText(input: unknown): Result<readonly TextChunk[], LenaError> {
+  const parsedInput = chunkTextInputSchema.safeParse(input);
   if (!parsedInput.success) {
-    return err(new LenaError("invalid_input", "Chunk input shape is invalid"));
-  }
-  const sourceId = parseSourceIdentity(parsedInput.data.sourceId, "Source id");
-  if (sourceId.isErr()) return err(sourceId.error);
-  const sourceRevision = parseSourceIdentity(parsedInput.data.sourceRevision, "Source revision");
-  if (sourceRevision.isErr()) return err(sourceRevision.error);
-  if (typeof parsedInput.data.text !== "string") {
-    return err(new LenaError("invalid_input", "Chunk source text must be a string"));
-  }
-  if (
-    !Number.isSafeInteger(parsedInput.data.maximumCodePoints) ||
-    (parsedInput.data.maximumCodePoints as number) < 1 ||
-    (parsedInput.data.maximumCodePoints as number) > MAX_CHUNK_CODE_POINTS
-  ) {
-    return err(
-      new LenaError("invalid_input", "Maximum chunk size is invalid", {
-        maximum: MAX_CHUNK_CODE_POINTS,
-      }),
-    );
-  }
-  if (
-    !Number.isSafeInteger(parsedInput.data.overlapCodePoints) ||
-    (parsedInput.data.overlapCodePoints as number) < 0 ||
-    (parsedInput.data.overlapCodePoints as number) >= (parsedInput.data.maximumCodePoints as number)
-  ) {
-    return err(new LenaError("invalid_input", "Chunk overlap is invalid"));
+    return err(new LenaError("invalid_input"));
   }
 
-  const maximumCodePoints = parsedInput.data.maximumCodePoints as number;
-  const overlapCodePoints = parsedInput.data.overlapCodePoints as number;
-  const codePoints = Array.from(parsedInput.data.text);
+  const { maximumCodePoints, overlapCodePoints, sourceId, sourceRevision, text } = parsedInput.data;
+  const codePoints = Array.from(text);
   if (codePoints.length > MAX_SOURCE_CODE_POINTS) {
-    return err(
-      new LenaError("limit_exceeded", "Chunk source text is too large", {
-        maximum: MAX_SOURCE_CODE_POINTS,
-      }),
-    );
+    return err(new LenaError("limit_exceeded", { maximum: MAX_SOURCE_CODE_POINTS }));
   }
   if (codePoints.length === 0) return ok(Object.freeze([]));
 
@@ -88,16 +67,16 @@ export function chunkText(input: ChunkTextInput): Result<readonly TextChunk[], L
         chunkIdentity: [
           "lena-ai-chunk",
           "v1",
-          encodeURIComponent(sourceId.value),
-          encodeURIComponent(sourceRevision.value),
+          encodeURIComponent(sourceId),
+          encodeURIComponent(sourceRevision),
           index,
           startCodePoint,
           endCodePoint,
         ].join(":"),
         endCodePoint,
         index,
-        sourceId: sourceId.value,
-        sourceRevision: sourceRevision.value,
+        sourceId,
+        sourceRevision,
         startCodePoint,
         text: codePoints.slice(startCodePoint, endCodePoint).join(""),
       }),
@@ -115,12 +94,4 @@ export function isChunkCurrent(
   sourceRevision: string,
 ): boolean {
   return chunk.sourceId === sourceId && chunk.sourceRevision === sourceRevision;
-}
-
-function parseSourceIdentity(value: unknown, name: string): Result<string, LenaError> {
-  const parsed = sourceIdentitySchema.safeParse(value);
-  if (!parsed.success) {
-    return err(new LenaError("invalid_identifier", `${name} is invalid`));
-  }
-  return ok(parsed.data);
 }

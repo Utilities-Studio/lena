@@ -11,10 +11,7 @@ const GpsVersionSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/);
 
 export const gpsDetectorVersionSchema = GpsVersionSchema.brand<"GpsDetectorVersion">();
 export const gpsPolicyVersionSchema = GpsVersionSchema.brand<"GpsPolicyVersion">();
-export const gpsObservationIdSchema = z
-  .string()
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/)
-  .brand<"GpsObservationId">();
+export const gpsObservationIdSchema = z.uuidv4().brand<"GpsObservationId">();
 
 export type CountryCode = z.output<typeof countryCodeSchema>;
 export type GpsDetectorVersion = z.output<typeof gpsDetectorVersionSchema>;
@@ -26,7 +23,7 @@ export function parseCountryCode(value: unknown): Result<CountryCode, LenaError>
   return parsed.success
     ? ok(parsed.data)
     : err(
-        new LenaError("invalid_input", "Country code is invalid", {
+        new LenaError("invalid_input", {
           boundary: "gps_country",
         }),
       );
@@ -37,7 +34,7 @@ export function parseGpsDetectorVersion(value: unknown): Result<GpsDetectorVersi
   return parsed.success
     ? ok(parsed.data)
     : err(
-        new LenaError("invalid_input", "GPS version is invalid", {
+        new LenaError("invalid_input", {
           boundary: "gps_detector_version",
         }),
       );
@@ -48,7 +45,7 @@ export function parseGpsPolicyVersion(value: unknown): Result<GpsPolicyVersion, 
   return parsed.success
     ? ok(parsed.data)
     : err(
-        new LenaError("invalid_input", "GPS version is invalid", {
+        new LenaError("invalid_input", {
           boundary: "gps_policy_version",
         }),
       );
@@ -59,7 +56,7 @@ export function parseGpsObservationId(value: unknown): Result<GpsObservationId, 
   return parsed.success
     ? ok(parsed.data)
     : err(
-        new LenaError("invalid_identifier", "GPS observation id is invalid", {
+        new LenaError("invalid_identifier", {
           boundary: "gps_observation",
         }),
       );

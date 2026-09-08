@@ -18,22 +18,22 @@ compatibility check, and owner approval before installation.
 
 ## Approved portable foundation
 
-| Library                          | Approved version | Ownership and boundary                                                                                                                                 |
-| -------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `zod`                            | `4.5.4`          | Strict external, persisted, provider, native, and database-row schemas with schema-inferred types. Parsing never mints runtime authority.              |
-| `neverthrow`                     | `8.2.0`          | The only shared Result implementation for expected failures.                                                                                           |
-| `es-toolkit`                     | `1.52.0`         | Generic collection and object transforms through named, tree-shakeable imports.                                                                        |
-| `date-fns`                       | `4.4.0`          | Portable date and canonical UTC-instant arithmetic without implicit device-zone policy.                                                                |
-| `ts-pattern`                     | `5.9.0`          | Exhaustive matching for complex discriminated state machines after Zod validation.                                                                     |
-| `drizzle-orm`                    | `0.45.2`         | One canonical typed schema mapping in `@lena/vault`, then ordinary adapter queries once runtimes exist. It is not a driver or migration authorization. |
-| `drizzle-zod`                    | `0.8.3`          | Derives strict database row contracts from the canonical Drizzle mapping instead of duplicating row shapes.                                            |
-| `canonicalize`                   | `4.0.0`          | RFC 8785 canonical JSON for backup-manifest bytes that are hashed or authenticated.                                                                    |
-| `@turf/boolean-point-in-polygon` | `7.4.0`          | Point-in-polygon geometry only.                                                                                                                        |
-| `@turf/distance`                 | `7.4.0`          | Ephemeral sample distance only.                                                                                                                        |
-| `@turf/helpers`                  | `7.4.0`          | GeoJSON primitive construction only.                                                                                                                   |
-| `@turf/bbox`                     | `7.4.0`          | Bounds for validated country polygons without handwritten or spread-based extrema scans.                                                               |
-| `flatbush`                       | `4.5.0`          | Static per-dataset spatial index that limits Turf checks to candidate country polygons.                                                                |
-| `compare-versions`               | `6.1.1`          | Validated model/runtime semantic-version comparison.                                                                                                   |
+| Library                          | Approved version | Ownership and boundary                                                                                                                                                                        |
+| -------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `zod`                            | `4.5.4`          | Strict external, persisted, provider, native, and database-row schemas with schema-inferred types. Parsing never mints runtime authority.                                                     |
+| `neverthrow`                     | `8.2.0`          | The only shared Result implementation for expected failures.                                                                                                                                  |
+| `es-toolkit`                     | `1.52.0`         | Generic collection and object transforms through named, tree-shakeable imports.                                                                                                               |
+| `date-fns`                       | `4.4.0`          | Portable date and canonical UTC-instant arithmetic without implicit device-zone policy.                                                                                                       |
+| `ts-pattern`                     | `5.9.0`          | Exhaustive matching for complex discriminated state machines after Zod validation.                                                                                                            |
+| `drizzle-orm`                    | `0.45.2`         | Canonical typed mapping, ordinary adapter queries, and official driver-specific `migrate()` once closed keyed runtimes exist. It is not a driver or proof that an older backup is compatible. |
+| `drizzle-zod`                    | `0.8.3`          | Derives strict database row contracts from the canonical Drizzle mapping instead of duplicating row shapes.                                                                                   |
+| `canonicalize`                   | `4.0.0`          | RFC 8785 canonical JSON for backup-manifest bytes that are hashed or authenticated.                                                                                                           |
+| `@turf/boolean-point-in-polygon` | `7.4.0`          | Point-in-polygon geometry only.                                                                                                                                                               |
+| `@turf/distance`                 | `7.4.0`          | Ephemeral sample distance only.                                                                                                                                                               |
+| `@turf/helpers`                  | `7.4.0`          | GeoJSON primitive construction only.                                                                                                                                                          |
+| `@turf/bbox`                     | `7.4.0`          | Bounds for validated country polygons without handwritten or spread-based extrema scans.                                                                                                      |
+| `flatbush`                       | `4.5.0`          | Static per-dataset spatial index that limits Turf checks to candidate country polygons.                                                                                                       |
+| `compare-versions`               | `6.1.1`          | Validated model/runtime semantic-version comparison.                                                                                                                                          |
 
 Each package declares only the subset it imports. No umbrella `@turf/turf`, Lodash, Remeda,
 handwritten Result union, or duplicate schema-owned interface is approved.
@@ -42,10 +42,11 @@ handwritten Result union, or duplicate schema-owned interface is approved.
 
 | Tool                     | Approved version | Gate                                                                                                                                    |
 | ------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `drizzle-kit`            | `0.31.10`        | Installed host-history generator and owner-run Lena DDL export tool. No host config or migration artifact exists yet.                   |
 | `fast-check`             | `4.9.0`          | Property tests for schemas, codecs, reducers, replay, time, GPS, FTS, retention, and restore safety. Named regressions remain required. |
 | `knip`                   | `6.34.0`         | Configured in `knip.json` with package entry points and test/source projects. Findings require review before deletion.                  |
 | `oxfmt`                  | `0.66.0`         | The only repository formatter.                                                                                                          |
-| `oxlint`                 | `1.80.0`         | Type-aware and type-checking lint; warnings fail the gate.                                                                              |
+| `oxlint`                 | `1.81.0`         | Type-aware and type-checking lint; warnings fail the gate.                                                                              |
 | `oxlint-tsgolint`        | `7.0.2001`       | Pinned type-aware Oxc engine.                                                                                                           |
 | `tsdown`                 | `0.22.14`        | The only package build and declaration path; keeps dependencies external.                                                               |
 | `typescript`             | `7.0.2`          | Declaration compiler used by tsdown. The exact upstream experimental-API warning is suppressed, not other warnings.                     |
@@ -69,8 +70,17 @@ before timezone APIs.
 ## Batch A: Local encrypted database
 
 `drizzle-orm@0.45.2` and `zod@4.5.4` are already approved for one portable canonical mapping in
-`@lena/vault`, consumed by both SQLite adapter packages. They add no native database driver,
-SQLCipher build, migration runtime, database connection, or signed-device proof.
+`@lena/vault`, consumed by both SQLite adapter packages. `drizzle-kit@0.31.10` is installed as an
+approved development generator. Each consuming application owns one generated history containing
+its domain schema and imported Lena tables. Lena does not own a parallel registry, planner, or SQL
+statement executor. No host Drizzle config, migration history, or generated artifact exists yet.
+
+Future OP-SQLite and Expo SQLite adapters call their official Drizzle `migrate()` only from a closed
+service that has already keyed and preliminarily validated the active or staging database. Backup
+discovery may identify that a source schema is older, but only staged migration followed by target
+metadata and integrity validation proves compatibility. These approved packages add no native
+database driver, SQLCipher build, database connection, runtime migration evidence, or signed-device
+proof.
 
 ### Jetseen candidate
 
@@ -81,6 +91,13 @@ SQLCipher build, migration runtime, database connection, or signed-device proof.
 - libSQL and Turso disabled.
 
 The upstream main branch reports a placeholder `0.0.0`, so Lena must resolve and review the latest stable registry release at approval time instead of copying the main-branch version. OP-SQLite is accepted only after the benchmark and recovery gates in [Plan 03](./plans/03-database-engines.md).
+
+The installed `drizzle-orm@0.45.2` OP-SQLite session starts `BEGIN`, invokes an async transaction
+callback, and starts `COMMIT` without awaiting those operations. Drizzle issues
+[#2275](https://github.com/drizzle-team/drizzle-orm/issues/2275) and
+[#5008](https://github.com/drizzle-team/drizzle-orm/issues/5008) remain open. Treat its migration
+transaction as unsupported until a reviewed stable version fixes the ordering and real native
+rollback tests pass. This blocker does not permit another Lena migration executor.
 
 Official source: <https://github.com/OP-Engineering/op-sqlite>
 
@@ -147,13 +164,19 @@ Official sources:
 
 Approved bridge:
 
-- `expo-iap`, currently `5.4.1` in the OpenIAP monorepo.
+- `expo-iap`.
 
 It is a host peer dependency backed by OpenIAP and StoreKit 2. Lena uses exact-product, locally
 StoreKit-verified current entitlement and explicit restore. Hosted validation, dashboards, and
 entitlement services are not part of Private Vault.
 
-The package must be checked against Jetseen's Expo 55/RN 0.83 binary before adoption. Becoming does not need payment in its first Lena slice.
+The package currently declares exact peer `5.4.1`, while Lena's development and test installation
+resolves `5.5.0`. Current source tests and built artifacts prove only the 5.5.0 surface. Align the
+peer, development dependency, and approved version documentation in one dependency change before
+application adoption.
+
+The selected exact version must be checked against Jetseen's Expo 55/RN 0.83 binary before
+adoption. Becoming does not need payment in its first Lena slice.
 
 Official source: <https://github.com/hyodotdev/openiap/tree/main/libraries/expo-iap>
 

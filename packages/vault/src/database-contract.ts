@@ -65,7 +65,7 @@ export function validatePrivateVaultDatabaseCapabilities(
   if (!parsed.success) {
     const capability = parsed.error.issues[0]?.path[0];
     return err(
-      new LenaError("unsupported", "Database engine lacks a required Private Vault capability", {
+      new LenaError("unsupported", {
         capability: typeof capability === "string" ? capability : "capability_shape",
       }),
     );
@@ -81,7 +81,7 @@ export function validatePrivateVaultDatabaseCapabilities(
   const missing = required.find((capability) => !parsed.data[capability]);
   if (missing) {
     return err(
-      new LenaError("unsupported", "Database engine lacks a required Private Vault capability", {
+      new LenaError("unsupported", {
         capability: missing,
       }),
     );
@@ -93,9 +93,7 @@ export function validatePrivateVaultDatabaseCapabilities(
 export function validateVaultDatabaseName(value: string): Result<string, LenaError> {
   const parsed = vaultDatabaseNameSchema.safeParse(value);
   if (!parsed.success) {
-    return err(
-      new LenaError("invalid_input", "Database name must be a safe relative .db filename"),
-    );
+    return err(new LenaError("invalid_input"));
   }
 
   return ok(parsed.data);

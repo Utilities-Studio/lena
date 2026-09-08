@@ -36,11 +36,11 @@ import {
   reconcileICloudUploadConflict,
 } from "../../src/index";
 
-const VAULT_ID = "018f3f5a-1d2c-7abc-8def-0123456789ab";
-const GENERATION_ID = "018f3f5a-1d2c-7abc-8def-2123456789ab";
-const NEWER_GENERATION_ID = "018f3f5a-1d2c-7abc-8def-3123456789ab";
-const CLAIM_ID = "018f3f5a-1d2c-7abc-8def-4123456789ab";
-const OTHER_CLAIM_ID = "018f3f5a-1d2c-7abc-8def-5123456789ab";
+const VAULT_ID = "11111111-1111-4111-8111-111111111111";
+const GENERATION_ID = "22222222-2222-4222-8222-222222222222";
+const NEWER_GENERATION_ID = "33333333-3333-4333-8333-333333333333";
+const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
+const OTHER_CLAIM_ID = "55555555-5555-4555-8555-555555555555";
 const OBJECT_CHECKSUM_TEXT = `sha256:${"b".repeat(64)}`;
 const LOCAL_CIPHERTEXT_URI = "file:///verified/generation.lena";
 
@@ -54,7 +54,6 @@ function manifest(
   const parsed = parseGenerationManifest({
     applicationVersion: "1.0.0",
     completedAt: overrides.completedAt ?? "2026-09-01T08:16:30.000Z",
-    compatibleSchema: { maximum: 1, minimum: 1 },
     createdAt: overrides.createdAt ?? "2026-09-01T08:15:30.000Z",
     encryption: {
       algorithm: "AES-256-GCM",
@@ -74,6 +73,12 @@ function manifest(
     },
     reason: "mutation",
     schemaVersion: 1,
+    snapshot: {
+      commitSequence: 1,
+      committedAt: overrides.createdAt ?? "2026-09-01T08:15:30.000Z",
+      mutationId: "66666666-6666-4666-8666-666666666666",
+      vaultInstanceId: "77777777-7777-4777-8777-777777777777",
+    },
     vaultId: VAULT_ID,
   });
   if (parsed.isErr()) throw parsed.error;
@@ -101,13 +106,15 @@ function verifiedAt(value = "2026-09-01T08:17:30.000Z") {
 function runtimeLocalVerification(
   generation = manifest(),
   localCiphertextUri = LOCAL_CIPHERTEXT_URI,
+  verificationTime = verifiedAt(),
 ): VerifiedGeneration {
   const verification = createRuntimeLocalVerifiedGeneration({
     generationId: generation.generationId,
     localCiphertextUri,
     objectByteLength: 148,
     objectChecksum: objectChecksum(),
-    verifiedAt: verifiedAt(),
+    snapshot: generation.snapshot,
+    verifiedAt: verificationTime,
     vaultId: generation.vaultId,
   });
   if (verification.isErr()) throw verification.error;
@@ -148,6 +155,7 @@ function runtimeRemoteVerification(
     expectedProviderObjectPath: receipt.providerObjectPath,
     expectedVaultId: generation.vaultId,
     receipt,
+    sourceVerification: runtimeLocalVerification(generation),
   });
   if (verification.isErr()) throw verification.error;
   return verification.value;
@@ -193,6 +201,7 @@ function authorizedDeletionRetention(
   const newerVerification = runtimeLocalVerification(
     newer,
     "file:///verified/newer-generation.lena",
+    verifiedAt("2026-09-02T08:17:30.000Z"),
   );
   const retention = planGenerationRetention(
     [
@@ -228,7 +237,7 @@ describe("iCloud transport protocol", () => {
     const attempt = activeUploadAttempt(generation, local);
     const plan = createICloudImmutableUploadPlan(generation, local, attempt);
     expect(plan.isOk()).toBe(true);
-    if (plan.isErr()) return;
+    if (plan.isErr()) throw plan.error;
     expect(plan.value.conflictBehavior).toBe("verify-existing-exact-object");
     expect(plan.value.localCiphertextUri).toBe(LOCAL_CIPHERTEXT_URI);
     expect(plan.value.claimId).toBe(claimId);
@@ -236,9 +245,7 @@ describe("iCloud transport protocol", () => {
     expect(plan.value.expectedObjectByteLength).toBe(148);
     expect(isAuthorizedICloudImmutableUploadPlan(plan.value)).toBe(true);
     expect(isAuthorizedICloudImmutableUploadPlan({ ...plan.value })).toBe(false);
-    expect(
-      createICloudImmutableUploadPlan(generation, local, { ...attempt } as BackupAttempt).isOk(),
-    ).toBe(false);
+    expect(createICloudImmutableUploadPlan(generation, local, { ...attempt }).isOk()).toBe(false);
     const persistedAttempt = parseBackupAttempt(JSON.parse(JSON.stringify(attempt)));
     if (persistedAttempt.isErr()) throw persistedAttempt.error;
     expect(createICloudImmutableUploadPlan(generation, local, persistedAttempt.value).isOk()).toBe(
@@ -250,6 +257,7 @@ describe("iCloud transport protocol", () => {
       generationId: generation.generationId,
       objectByteLength: 148,
       objectChecksum: objectChecksum(),
+      snapshot: generation.snapshot,
       verifiedAt: verifiedAt(),
       vaultId: generation.vaultId,
     });
@@ -355,7 +363,7 @@ describe("iCloud transport protocol", () => {
     const remote = runtimeRemoteVerification(generation);
     const download = createICloudDownloadPlan(generation, remote, "file:///staging/download.lena");
     expect(download.isOk()).toBe(true);
-    if (download.isErr()) return;
+    if (download.isErr()) throw download.error;
     expect(download.value.materializePlaceholder).toBe(true);
     expect(download.value.providerObjectId).toBe("icloud-object-1");
     expect(isAuthorizedICloudDeletePlan(download.value)).toBe(false);
@@ -385,9 +393,7 @@ describe("iCloud transport protocol", () => {
       expect(isAuthorizedICloudDeletePlan(deletion.value)).toBe(true);
       expect(isAuthorizedICloudDeletePlan({ ...deletion.value })).toBe(false);
     }
-    expect(
-      createICloudDeletePlan(generation, remote, { ...retention } as RetentionPlan).isOk(),
-    ).toBe(false);
+    expect(createICloudDeletePlan(generation, remote, { ...retention }).isOk()).toBe(false);
 
     const parsedRemote = parsePersistedGenerationVerificationClaim(
       JSON.parse(JSON.stringify(remote)),
@@ -408,7 +414,11 @@ describe("iCloud transport protocol", () => {
       createdAt: "2026-09-02T08:15:30.000Z",
       generationId: NEWER_GENERATION_ID,
     });
-    const newerRuntime = runtimeLocalVerification(newer, "file:///verified/newer-generation.lena");
+    const newerRuntime = runtimeLocalVerification(
+      newer,
+      "file:///verified/newer-generation.lena",
+      verifiedAt("2026-09-02T08:17:30.000Z"),
+    );
     const parsedNewer = parsePersistedGenerationVerificationClaim(
       JSON.parse(JSON.stringify(newerRuntime)),
     );

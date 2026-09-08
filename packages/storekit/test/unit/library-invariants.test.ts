@@ -11,8 +11,7 @@ const PRODUCTS = Object.freeze({
 
 test("catalog identity is invariant under every generated product permutation", () => {
   const expected = createStoreKitEntitlementCatalog(Object.values(PRODUCTS));
-  expect(expected.isOk()).toBe(true);
-  if (expected.isErr()) return;
+  if (expected.isErr()) throw expected.error;
 
   assert(
     property(

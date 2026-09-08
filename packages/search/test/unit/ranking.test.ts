@@ -33,8 +33,7 @@ describe("reciprocal rank fusion", () => {
       semantic: [{ documentId: "b" }, { documentId: "a" }, { documentId: "d" }],
     });
 
-    expect(fused.isOk()).toBe(true);
-    if (fused.isErr()) return;
+    if (fused.isErr()) throw fused.error;
     expect(fused.value.map((result) => result.documentId)).toEqual(["a", "b", "c", "d"]);
     expect(fused.value[0]).toMatchObject({ lexicalRank: 1, semanticRank: 2 });
     expect(fused.value[1]).toMatchObject({ lexicalRank: 2, semanticRank: 1 });

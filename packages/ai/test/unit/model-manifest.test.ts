@@ -6,7 +6,7 @@ import {
   parseModelManifest,
 } from "../../src/index";
 
-const MODEL_ID = "018f3f5a-1d2c-7abc-8def-0123456789ab";
+const MODEL_ID = "11111111-1111-4111-8111-111111111111";
 
 function manifestInput() {
   return {
@@ -31,7 +31,7 @@ describe("model manifest", () => {
   test("validates and canonicalizes integrity-bearing fields", () => {
     const parsed = parseModelManifest(manifestInput());
     expect(parsed.isOk()).toBe(true);
-    if (parsed.isErr()) return;
+    if (parsed.isErr()) throw parsed.error;
     expect(parsed.value.artifact.sha256).toBe("a".repeat(64));
     expect(parsed.value.capabilities).toEqual(["embedding", "summarization"]);
     expect(getModelIntegrityIdentity(parsed.value)).toBe(

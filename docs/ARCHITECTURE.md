@@ -68,10 +68,15 @@ staging -> validate -> select active pointer -> reopen -> verify
 The non-sensitive registry stores only the minimum required to locate encrypted vault files. It never contains travel records, journal content, provider tokens, StoreKit identifiers, or encryption keys.
 
 `schemaVersion` identifies the consuming application's unified vault schema. A consuming app owns
-one source-code migration registry whose consecutive steps include both its domain changes and the
-required Lena table changes. Lena's built-in registry proves only the current Lena-owned v2 to v3
-fragment; it does not claim to migrate Jetseen or Becoming domain tables. Restore is compatible only
-when the supplied registry produces a complete executable chain to the host's target version.
+one Drizzle Kit history generated from its domain schema plus Lena's exported table definitions.
+Lena has no handwritten migration registry, planner, or statement executor and never claims to
+migrate unknown Jetseen or Becoming domain tables.
+
+Backup discovery compares the authenticated source version with the host target and classifies it as
+current, older, or future. A future schema is rejected. An older schema is only a staging candidate,
+not a compatibility claim. Compatibility is established only when a future keyed staging or open
+service calls the adapter-specific Drizzle `migrate()`, then validates the target vault metadata,
+database integrity, and application invariants before any active pointer can change.
 
 `vault_id` identifies one logical user vault. `vault_instance_id` identifies one physical active,
 staging, migrated, or restored copy. The registry selects an exact physical instance, so staging
@@ -144,7 +149,11 @@ The prior vault and source generation remain available after success until a lat
 
 Jetseen targets OP-SQLite plus SQLCipher only if its signed-device performance and recovery evidence beats Expo SQLite materially. Becoming remains on Expo SQLite unless its explicit managed-Expo native-dependency policy changes. The current packages expose capability/readiness contracts with `runtimeReady: false`; no native database implementation is claimed yet. Both targets must expose the same Lena lifecycle and transactional obligations.
 
-SQLCipher provides whole-database encryption. FTS5 and `sqlite-vec` remain inside the same encrypted database where supported. Database keys are applied before schema inspection, migration, or query execution.
+SQLCipher provides whole-database encryption. FTS5 and `sqlite-vec` remain inside the same encrypted
+database where supported. Database keys are applied before schema inspection, migration, or query
+execution. Future OP-SQLite and Expo SQLite services consume the host-owned generated migration
+bundle and call their official Drizzle `migrate()` only after keying and preliminary validation.
+No native service, generated migration artifact, or runtime migration is implemented today.
 
 ## Search and AI
 
