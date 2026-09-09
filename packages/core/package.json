@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/core",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Validated primitives for Lena local-first infrastructure.",
 	"license": "UNLICENSED",
 	"publishConfig": {

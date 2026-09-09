@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/expo-sqlite",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Expo SQLite readiness contracts for Lena vaults.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,7 +29,7 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/vault": "0.1.0",
+		"@lena-inc/vault": "0.2.0",
 		"es-toolkit": "1.52.0"
 	}
 }

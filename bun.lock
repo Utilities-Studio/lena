@@ -25,7 +25,7 @@
     },
     "packages/ai": {
       "name": "@lena-inc/ai",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/core": "0.1.0",
         "compare-versions": "6.1.1",
@@ -36,7 +36,7 @@
     },
     "packages/backup": {
       "name": "@lena-inc/backup",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/core": "0.1.0",
         "@lena-inc/vault": "0.1.0",
@@ -49,7 +49,7 @@
     },
     "packages/core": {
       "name": "@lena-inc/core",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "date-fns": "4.4.0",
         "es-toolkit": "1.52.0",
@@ -59,7 +59,7 @@
     },
     "packages/expo-sqlite": {
       "name": "@lena-inc/expo-sqlite",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/vault": "0.1.0",
         "es-toolkit": "1.52.0",
@@ -67,7 +67,7 @@
     },
     "packages/google-drive": {
       "name": "@lena-inc/google-drive",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/backup": "0.1.0",
         "@lena-inc/core": "0.1.0",
@@ -83,7 +83,7 @@
     },
     "packages/gps": {
       "name": "@lena-inc/gps",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/core": "0.1.0",
         "@turf/bbox": "7.4.0",
@@ -99,7 +99,7 @@
     },
     "packages/icloud": {
       "name": "@lena-inc/icloud",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/backup": "0.1.0",
         "@lena-inc/core": "0.1.0",
@@ -115,7 +115,7 @@
     },
     "packages/manual-backup": {
       "name": "@lena-inc/manual-backup",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/backup": "0.1.0",
         "@lena-inc/core": "0.1.0",
@@ -125,7 +125,7 @@
     },
     "packages/op-sqlite": {
       "name": "@lena-inc/op-sqlite",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/vault": "0.1.0",
         "es-toolkit": "1.52.0",
@@ -133,7 +133,7 @@
     },
     "packages/search": {
       "name": "@lena-inc/search",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/core": "0.1.0",
         "es-toolkit": "1.52.0",
@@ -143,7 +143,7 @@
     },
     "packages/storekit": {
       "name": "@lena-inc/storekit",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/core": "0.1.0",
         "date-fns": "4.4.0",
@@ -160,7 +160,7 @@
     },
     "packages/sync": {
       "name": "@lena-inc/sync",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/core": "0.1.0",
         "ts-pattern": "5.9.0",
@@ -169,7 +169,7 @@
     },
     "packages/vault": {
       "name": "@lena-inc/vault",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@lena-inc/core": "0.1.0",
         "drizzle-orm": "0.45.2",

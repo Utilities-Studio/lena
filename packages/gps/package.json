@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/gps",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Privacy-preserving country resolution and transition contracts for Lena.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,7 +29,7 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/core": "0.1.0",
+		"@lena-inc/core": "0.2.0",
 		"@turf/bbox": "7.4.0",
 		"@turf/boolean-point-in-polygon": "7.4.0",
 		"@turf/distance": "7.4.0",
