@@ -9,6 +9,8 @@ pre-commit:
     - name: lint
       glob: '**/*.{js,jsx,ts,tsx}'
       run: bun run oxlint {staged_files}
+    - name: audit
+      run: bun run audit
 
 pre-push:
   jobs:

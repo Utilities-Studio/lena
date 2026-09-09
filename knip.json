@@ -1,7 +1,12 @@
 {
 	"$schema": "./node_modules/knip/schema.json",
 	"bun": true,
-	"ignoreDependencies": ["lefthook"],
+	"ignoreDependencies": [
+		"@lerna-lite/publish",
+		"@lerna-lite/version",
+		"conventional-changelog-conventionalcommits",
+		"lefthook"
+	],
 	"workspaces": {
 		"packages/*": {
 			"entry": ["src/index.ts", "test/**/*.test.ts"],

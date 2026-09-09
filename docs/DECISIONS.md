@@ -79,12 +79,22 @@ signed-device-gated.
 
 Decision: `tsdown` is the only package build path. Every package exports `dist` artifacts, and each
 build runs Publint and Are the Types Wrong against those artifacts. Knip is configured for workspace
-static analysis. Changesets owns versioning, unpublished-version discovery, dependency-ordered
+static analysis. Lerna-Lite owns versioning, unpublished-version discovery, dependency-ordered
 publication, and already-published detection. The owner performs the first publication locally,
-then npm trusted publishing authenticates the same Changesets command from the protected
+then npm trusted publishing authenticates the same Lerna-Lite publish command from the protected
 `npm-publish` GitHub environment. Internal Lena dependencies use exact released versions so npm
 packaging cannot leak workspace protocols. This configuration does not authorize agents to run Git,
 publishing, deployment, infrastructure, or database work.
+
+2026-09-10 migration: Lena's manually dispatched `publish.yml` delegates to Infra's shared
+`npm-publish.yml` at immutable commit `9609ba74b576fe3eee32fa2ac5394ab750b240c4`. Infra owns runtime
+setup, verification, and sequential version/publish steps. Lena uses the shared defaults without
+overrides: `lerna version --yes` and `lerna publish from-package --yes` in the root scripts.
+`lerna.json` owns independent conventional-commit versioning, exact internal dependency updates,
+Bun lockfile synchronization, and ignored documentation/test paths. There is no version PR:
+versioning commits and tags directly on `main` before publishing. Branch rules must permit those
+owner-authorized CI writes; this repository does not change GitHub settings. Manual dispatch and
+the `utilities-studio/lena`, `publish.yml`, `npm-publish` trust identity remain unchanged.
 
 ## D-015: Maintained mechanics added at their narrow owners
 

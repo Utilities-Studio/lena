@@ -1,116 +1,112 @@
 # Publishing Lena packages
 
-Lena publishes public packages under `@lena-inc/*` from
-<https://github.com/utilities-studio/lena>. Package versions start at `0.1.0`.
+Lena publishes public `@lena-inc/*` packages from
+<https://github.com/utilities-studio/lena>. Lerna-Lite owns package discovery, independent
+versions, changelogs, internal dependency updates, lockfile synchronization, commits, tags, and
+publication. Infra owns the shared CI workflow. Agents never execute versioning, publication,
+Git, npm trust configuration, or infrastructure commands.
 
-The first publication is a local owner-run bootstrap. Later publications use npm trusted
-publishing from GitHub Actions with short-lived OIDC credentials. Agents never execute either
-publication path.
+## Release contract
 
-## Package order
+The root scripts match Infra's defaults, without workflow command overrides:
 
-Publish dependencies before their consumers:
+| Script            | Command                            | Responsibility                                                       |
+| ----------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| `check`           | Existing Lena quality gate         | Format, build, validate artifacts, lint, test, and audit             |
+| `release:version` | `lerna version --yes`              | Version changed packages, update the lockfile, commit, tag, and push |
+| `release:publish` | `lerna publish from-package --yes` | Publish current package versions missing from npm                    |
 
-1. `core`
-2. `vault`
-3. `op-sqlite`
-4. `expo-sqlite`
-5. `backup`
-6. `manual-backup`
-7. `icloud`
-8. `google-drive`
-9. `search`
-10. `ai`
-11. `storekit`
-12. `gps`
-13. `sync`
+`lerna.json` configures Bun, independent conventional-commit versions, the `conventionalcommits`
+preset, `main` as the release branch, and documentation/test-path exclusions. `exact: true`
+preserves exact internal Lena dependency versions. `syncWorkspaceLock` refreshes `bun.lock`
+through Bun with lifecycle scripts and automatic environment-file loading disabled.
 
-## One-time npm preparation
+The caller is `.github/workflows/publish.yml`, pinned to Infra commit
+`9609ba74b576fe3eee32fa2ac5394ab750b240c4`. It grants only `contents: write` and
+`id-token: write`. Runtime setup, default-branch validation, concurrency, the `npm-publish`
+environment, installation, verification, and version/publish steps belong to Infra.
 
-The owner must create or control the npm organization or user scope `lena-inc`, enable account
-two-factor authentication, and have permission to create public packages in that scope.
+## One-time owner setup
 
-All packages currently declare `license: UNLICENSED`. They are publicly installable after
-publication, but publication does not grant open-source reuse rights. Choose and add an SPDX
-license before bootstrap publication if public reuse is intended.
+Before the first release:
 
-## First publication from the owner's machine
+1. Control the npm `lena-inc` scope, enable account 2FA, and obtain package write access.
+2. Review the package names, versions, dependency ranges, artifacts, and license. Packages currently
+   declare `UNLICENSED`; public installation does not grant open-source reuse rights.
+3. Reconcile source versions and release tags with packages already published. This tooling
+   migration does not change package versions or create historical tags.
+4. Create or retain the `npm-publish` GitHub environment, restrict it to `main`, and retain any
+   required release approval.
+5. Ensure branch and tag rules permit the workflow's direct release commits and tags. Required-PR
+   or signed-commit rules can block this workflow. It does not bypass those rules or change GitHub
+   settings.
 
-Run the repository gate first:
+The first publication for packages not yet on npm is owner-run locally:
 
 ```sh
 bun install --frozen-lockfile --ignore-scripts
 bun run check
-```
-
-Inspect the package payloads without publishing:
-
-```sh
-for package in core vault op-sqlite expo-sqlite backup manual-backup icloud google-drive search ai storekit gps sync; do
-  (cd "packages/$package" && npm pack --dry-run --ignore-scripts)
-done
-```
-
-After the package names, versions, files, dependency ranges, and license are accepted, the owner
-runs the irreversible bootstrap publication:
-
-```sh
 bun run release:publish
 ```
 
-Changesets queries npm, skips versions that already exist, and publishes new versions in dependency
-order through npm. Internal Lena dependencies use exact released versions, so no workspace protocol
-can enter a package. The first local publication has no GitHub provenance attestation. A published
-package name and version cannot be reused.
+Authenticate with npm first. Lerna-Lite publishes dependency-first and skips existing versions.
+`from-package` publishes the versions already in the manifests; it does not run the separate
+versioning step. A published package name and version cannot be reused. Local bootstrap does not
+have GitHub provenance.
 
-## Enable GitHub trusted publishing after bootstrap
+## npm trusted publishing
 
-Create a protected GitHub environment named `npm-publish`. Restrict it to `main` and add a required
-reviewer when the repository plan supports environment protection.
-
-For each of the 13 packages on npm, add a GitHub Actions trusted publisher with these exact values:
+Every package must trust this unchanged caller identity:
 
 - GitHub organization: `utilities-studio`
 - Repository: `lena`
-- Workflow filename: `publish.yml`
+- Workflow: `publish.yml`
 - Environment: `npm-publish`
-- Allowed action: `npm publish`
+- Allowed action: direct npm publishing
 
-Do not add `NPM_TOKEN` to the workflow. The workflow grants only `contents: read` and
-`id-token: write`; npm exchanges the GitHub identity for a short-lived publish credential.
-
-The workflow uses a GitHub-hosted runner, Node 24, npm trusted publishing, Bun for installation and
-quality checks, and the same Changesets publication command used during bootstrap. Changesets calls
-npm, publishes in dependency order, and skips package versions that already exist.
-
-Automatic npm provenance is emitted only when the npm package and GitHub repository are public.
-
-## Future release cycle
-
-Create a Changeset with:
+After initial publication and npm login, the owner can configure all packages from the Lena root:
 
 ```sh
-bun run changeset
+bunx @utilities-studio/npm-trust@latest
 ```
 
-Apply accepted version and changelog changes with:
+The CLI infers the repository from `origin` and defaults to `publish.yml`, `npm-publish`, and
+direct publishing. **It applies immediately, not as a preview.** Matching records are skipped;
+differing records are revoked and replaced. Replacement is not atomic: failed creation after
+revocation can leave a package without a trusted publisher. Other packages continue, and the CLI
+reports remaining failures after the batch. Rerunning skips completed packages.
 
-```sh
-bun run release:version
-bun install --ignore-scripts
-bun run check
-```
+Initial setup requires authenticated npm access and 2FA. Later publishing uses GitHub OIDC with no
+`NPM_TOKEN`. npm validates Lena's repository and caller workflow, not Infra's repository or
+`npm-publish.yml`. Existing matching Lena trust records need no changes merely because the release
+engine changed.
 
-Changesets updates manifests and changelogs but does not update `bun.lock`; the Bun install is
-therefore required before the version changes reach `main`. An owner then manually runs the
-**Publish packages** workflow. The `npm-publish` environment approval remains the final release
-gate.
+## Normal releases
 
-## Primary references
+Commit package changes using conventional commits. For stable packages, `feat:` requests a minor
+bump and a breaking-change marker requests a major bump. Other selected code changes receive at
+least a patch bump; documentation/test-only paths are ignored. Pre-1.0 packages follow Lerna-Lite's
+premajor rules.
 
-- [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/)
-- [npm scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)
-- [GitHub OIDC permissions](https://docs.github.com/en/actions/reference/security/oidc)
-- [GitHub environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)
-- [Bun workspace publishing](https://bun.sh/docs/pm/workspaces)
-- [Changesets commands](https://github.com/changesets/changesets/blob/main/docs/command-line-options.md)
+Once changes reach `main`, manually run **Publish packages**. Manual dispatch is preserved; Lena
+does not publish on every push.
+
+The workflow checks out the latest default branch, runs Lena's quality gate, then versions,
+commits, tags, and publishes. There is no version PR or pending changeset file. Version commits
+include `[skip ci]`. The existing environment approval, if configured, applies to the release job.
+
+If publishing fails after versioning, the version commit and tags may already exist. Rerun the
+workflow after resolving the failure: `from-package` checks current manifest versions against npm
+and publishes missing versions even when no new version bump is needed. A rerun uses the latest
+`main`, not necessarily the original run's commit.
+
+Do not run `release:version` as a status check. It writes versions, commits, tags, and pushes.
+No local test proves npm authorization, GitHub branch permissions, or successful publication;
+those require owner-run workflow evidence.
+
+## References
+
+- [Infra release workflow](https://github.com/Utilities-Studio/infra/blob/9609ba74b576fe3eee32fa2ac5394ab750b240c4/.github/workflows/npm-publish.yml)
+- [Lerna-Lite version](https://github.com/lerna-lite/lerna-lite/tree/main/packages/version)
+- [Lerna-Lite publish and OIDC](https://github.com/lerna-lite/lerna-lite/tree/main/packages/publish)
+- [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/)

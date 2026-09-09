@@ -6,41 +6,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
-
-concurrency:
-  group: npm-publish
-  cancel-in-progress: false
 
 jobs:
   publish:
-    name: Verify and publish
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: npm-publish
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.2
-
-      - name: Set up Node for npm trusted publishing
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false
-
-      - name: Install dependencies without lifecycle scripts
-        run: bun install --frozen-lockfile --ignore-scripts
-
-      - name: Run repository quality gate
-        run: bun run check
-
-      - name: Publish unpublished package versions
-        run: bun run release:publish
+    uses: Utilities-Studio/infra/.github/workflows/npm-publish.yml@9609ba74b576fe3eee32fa2ac5394ab750b240c4

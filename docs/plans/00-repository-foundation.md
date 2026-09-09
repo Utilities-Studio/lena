@@ -16,7 +16,7 @@ sibling applications before publication, and released through one guarded npm wo
   date arithmetic, exhaustive state matching, typed SQLite mappings, and modular geometry.
 - Root property-testing and static package-audit tools with Publint and Are the Types Wrong running
   against each built artifact.
-- Public package metadata, Changesets versioning, owner-run bootstrap instructions, and a protected
+- Public package metadata, Lerna-Lite versioning, owner-run bootstrap instructions, and a protected
   tokenless npm trusted-publishing workflow.
 
 ## Acceptance
@@ -26,7 +26,7 @@ sibling applications before publication, and released through one guarded npm wo
 - A single check command format-checks, builds, validates artifacts, runs type-aware/type-checking
   lint, runs unit/property tests, and audits unused code.
 - Package manifests contain no package-local publish or deployment script. The private root owns one
-  explicit Changesets publication command.
+  explicit Lerna-Lite publication command, consumed by Infra's shared workflow without overrides.
 - Hosted Sync is visibly excluded from the Private Vault runtime.
 - Repository status distinguishes implemented contracts from native proof.
 - Portable dependencies and configured publishing never imply a native driver, provider bridge,

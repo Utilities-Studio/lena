@@ -1,0 +1,22 @@
+{
+	"version": "independent",
+	"npmClient": "bun",
+	"npmClientArgs": ["--no-env-file"],
+	"command": {
+		"version": {
+			"allowBranch": "main",
+			"conventionalCommits": true,
+			"changelogPreset": "conventionalcommits",
+			"exact": true,
+			"syncWorkspaceLock": true,
+			"message": "chore(release): version packages [skip ci]",
+			"ignoreChanges": [
+				"**/*.md",
+				"**/*.test.*",
+				"**/*.spec.*",
+				"**/__tests__/**",
+				"**/__fixtures__/**"
+			]
+		}
+	}
+}

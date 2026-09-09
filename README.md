@@ -446,8 +446,9 @@ tools. They do not belong in Lena's portable packages. `usehooks-ts` is excluded
 consumers are React Native applications, not browser applications.
 
 Oxfmt, type-aware/type-checking Oxc, tsdown, declaration generation, Publint, Are the Types Wrong,
-tests, and Knip form one pinned local gate. Changesets owns version planning and both manual and OIDC
-npm publication. Agents never execute the publishing path.
+tests, and Knip form one pinned local gate. Lerna-Lite owns conventional-commit versioning, lockfile
+updates, release commits and tags, and both manual and OIDC npm publication through Infra's shared
+workflow defaults. Agents never execute the publishing path.
 
 ## Status
 

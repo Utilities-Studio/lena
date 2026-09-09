@@ -137,8 +137,10 @@ not own. Never keep parallel old and new implementations.
   ordering, time, GPS geometry, FTS input, retention, and restore safety. Keep explicit adversarial
   regression tests as well.
 - Knip audits unused dependencies, files, and exports. Publint and Are the Types Wrong validate only
-  `tsdown`-built package artifacts. Changesets owns release metadata, versioning, and the configured
-  owner-run publish command. Agents never invoke publishing, deployment, Git, or database operations.
+  `tsdown`-built package artifacts. Lerna-Lite owns release metadata, conventional-commit versioning,
+  lockfile updates, version commits, tags, and the configured owner-run publish command. Use Infra's
+  shared workflow defaults and the root release scripts without caller command overrides or a
+  parallel release engine. Agents never invoke publishing, deployment, Git, or database operations.
   Every package export points to `dist`; source entry points are never the consumer contract.
 - `usehooks-ts` is prohibited because Lena targets React Native and portable non-browser packages.
 - Every package declares only the dependencies it imports. Never place every approved dependency in

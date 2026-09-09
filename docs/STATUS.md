@@ -1,6 +1,6 @@
 # Lena implementation status
 
-Last verified: 2026-09-08.
+Last verified: 2026-09-10. The full local gate passes after the Lerna-Lite migration.
 
 ## Status language
 
@@ -39,6 +39,33 @@ cloud-provider capability objects and StoreKit capability object also keep nativ
 false.
 
 ## Verified local evidence
+
+### Infra Lerna-Lite adoption, 2026-09-10
+
+- Lena's `publish.yml` delegates to Infra's shared `npm-publish.yml`, pinned to commit
+  `9609ba74b576fe3eee32fa2ac5394ab750b240c4`, using all shared command defaults.
+- Manual dispatch, Lena's quality gate, and the caller's npm trust identity remain unchanged.
+- Root release scripts use `lerna version --yes` and `lerna publish from-package --yes`.
+  Lerna-Lite 5.6.1 and the conventional-commits preset 10.4.0 replace the previous release engine.
+- `lerna.json` owns independent versions, exact internal dependencies, Bun lockfile synchronization,
+  ignored documentation/test paths, and direct release commits/tags on `main`. Version PRs are gone.
+- No pending changesets existed; only the obsolete release configuration was removed. Package
+  versions and runtime source remain unchanged. Release documentation and agent guidance match
+  the new engine, including npm-trust's immediate-apply and replacement behavior.
+- `bunfig.toml` explicitly selects hoisted installation so shared native-SDK mocks and package
+  imports resolve the same module. Two stale generated cloud-SDK symlinks from the previous
+  isolated layout were preserved outside the checkout; a frozen reinstall retains correct
+  resolution. Runtime source and mocks were not changed.
+- Knip permits only the three dynamically loaded Lerna command/preset dependencies in addition
+  to the existing Lefthook exception.
+- Lefthook runs the existing Knip audit at pre-commit without a staged-file filter. Pre-push
+  continues to run the full quality gate, which already includes the same audit.
+- Frozen installation passes without lockfile changes. The full local gate passes: formatting,
+  all 13 tsdown builds and artifact checks, type-aware/type-checking Oxc, 236 tests with 4,268
+  assertions across 33 files, and Knip. Static checks confirm the pinned workflow has no caller
+  overrides and all package versions/internal dependency versions remain `0.1.0`.
+- No workflow dispatch, npm setup, publication, versioning, or Git action ran. This is local
+  release-tooling evidence, not proof of npm authorization or successful workflow publication.
 
 Current package and release evidence on 2026-09-08:
 
