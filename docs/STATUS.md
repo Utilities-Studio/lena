@@ -44,7 +44,8 @@ false.
 
 - Lena's `publish.yml` delegates to Infra's shared `npm-publish.yml`, pinned to commit
   `9609ba74b576fe3eee32fa2ac5394ab750b240c4`, using all shared command defaults.
-- Manual dispatch, Lena's quality gate, and the caller's npm trust identity remain unchanged.
+- Pushes to `main` now start releases automatically. Manual dispatch, Lena's quality gate, and
+  the caller's npm trust identity remain unchanged.
 - Root release scripts use `lerna version --yes` and `lerna publish from-package --yes`.
   Lerna-Lite 5.6.1 and the conventional-commits preset 10.4.0 replace the previous release engine.
 - `lerna.json` owns independent versions, exact internal dependencies, Bun lockfile synchronization,

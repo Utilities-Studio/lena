@@ -88,8 +88,8 @@ bump and a breaking-change marker requests a major bump. Other selected code cha
 least a patch bump; documentation/test-only paths are ignored. Pre-1.0 packages follow Lerna-Lite's
 premajor rules.
 
-Once changes reach `main`, manually run **Publish packages**. Manual dispatch is preserved; Lena
-does not publish on every push.
+Pushes to `main` automatically start **Publish packages**. Manual dispatch remains available.
+Lerna-Lite determines which packages need versioning or publication.
 
 The workflow checks out the latest default branch, runs Lena's quality gate, then versions,
 commits, tags, and publishes. There is no version PR or pending changeset file. Version commits

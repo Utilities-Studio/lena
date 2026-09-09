@@ -3,6 +3,8 @@ name: Publish packages
 run-name: Publish @lena-inc packages from ${{ github.ref_name }}
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
