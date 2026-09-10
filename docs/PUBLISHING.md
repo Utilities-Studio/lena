@@ -6,6 +6,9 @@ versions, changelogs, internal dependency updates, lockfile synchronization, com
 publication. Infra owns the shared CI workflow. Agents never execute versioning, publication,
 Git, npm trust configuration, or infrastructure commands.
 
+Oxfmt excludes Lerna-generated `packages/*/CHANGELOG.md` files because Lerna owns their formatting.
+Handwritten documentation remains covered by the formatting check.
+
 ## Release contract
 
 The root scripts match Infra's defaults, without workflow command overrides:

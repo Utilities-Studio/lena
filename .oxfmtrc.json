@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/oxfmt/configuration_schema.json",
-	"ignorePatterns": ["packages/*/dist/**"],
+	"ignorePatterns": ["packages/*/dist/**", "packages/*/CHANGELOG.md"],
 	"arrowParens": "always",
 	"semi": false,
 	"singleQuote": true,
