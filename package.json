@@ -4,7 +4,7 @@
 	"private": true,
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/utilities-studio/lena.git"
+		"url": "git+https://github.com/Utilities-Studio/lena.git"
 	},
 	"workspaces": [
 		"packages/*"

@@ -1,3 +1,4 @@
+import { Glob } from 'bun'
 import { describe, expect, test } from 'bun:test'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -36,6 +37,27 @@ function packageFiles(packageName: string): string {
 }
 
 describe('package trust boundaries', () => {
+	test('package repository URLs match the case-sensitive GitHub identity', () => {
+		const packageManifests = [
+			...new Glob('packages/*/package.json').scanSync({
+				cwd: REPOSITORY_ROOT
+			})
+		]
+		expect(packageManifests.length).toBeGreaterThan(0)
+
+		for (const manifestPath of ['package.json', ...packageManifests]) {
+			const manifest: unknown = JSON.parse(
+				readFileSync(resolve(REPOSITORY_ROOT, manifestPath), 'utf8')
+			)
+			expect(manifest).toMatchObject({
+				repository: {
+					type: 'git',
+					url: 'git+https://github.com/Utilities-Studio/lena.git'
+				}
+			})
+		}
+	})
+
 	test('core imports no other Lena package', () => {
 		expect(packageSource('core')).not.toContain('from "@lena-inc/')
 	})

@@ -1,7 +1,7 @@
 # Publishing Lena packages
 
 Lena publishes public `@lena-inc/*` packages from
-<https://github.com/utilities-studio/lena>. Lerna-Lite owns package discovery, independent
+<https://github.com/Utilities-Studio/lena>. Lerna-Lite owns package discovery, independent
 versions, changelogs, internal dependency updates, lockfile synchronization, commits, tags, and
 publication. Infra owns the shared CI workflow. Agents never execute versioning, publication,
 Git, npm trust configuration, or infrastructure commands.
@@ -61,11 +61,20 @@ have GitHub provenance.
 
 Every package must trust this unchanged caller identity:
 
-- GitHub organization: `utilities-studio`
+- GitHub organization: `Utilities-Studio`
 - Repository: `lena`
 - Workflow: `publish.yml`
 - Environment: `npm-publish`
 - Allowed action: direct npm publishing
+
+These fields are case-sensitive. Use `Utilities-Studio`, not `utilities-studio`; GitHub URL
+redirects do not make npm's identity checks case-insensitive. The root and every published
+package manifest use `git+https://github.com/Utilities-Studio/lena.git` as their repository URL.
+
+Changing repository metadata or this guide does not update saved npm trusted-publisher settings.
+The owner must correct any mismatched settings on each package in npm before rerunning the
+workflow. A registry `E404` for an existing package can indicate an authorization failure, not a
+missing package; inspect the saved identity and direct-publishing permission before retrying.
 
 After initial publication and npm login, the owner can configure all packages from the Lena root:
 
@@ -74,7 +83,9 @@ bunx @utilities-studio/npm-trust@latest
 ```
 
 The CLI infers the repository from `origin` and defaults to `publish.yml`, `npm-publish`, and
-direct publishing. **It applies immediately, not as a preview.** Matching records are skipped;
+direct publishing. If the inferred organization has different casing, use the package's npm
+settings to configure the exact identity above instead. **It applies immediately, not as a
+preview.** Matching records are skipped;
 differing records are revoked and replaced. Replacement is not atomic: failed creation after
 revocation can leave a package without a trusted publisher. Other packages continue, and the CLI
 reports remaining failures after the batch. Rerunning skips completed packages.
