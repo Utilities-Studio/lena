@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/icloud",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "iCloud AppData transport contracts and read runtime for Lena backups.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,8 +29,8 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/backup": "0.2.0",
-		"@lena-inc/core": "0.2.0",
+		"@lena-inc/backup": "0.2.1",
+		"@lena-inc/core": "0.2.1",
 		"ts-pattern": "5.9.0",
 		"zod": "4.5.4"
 	},

@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/vault",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Encrypted local-vault lifecycle, transaction, and recovery contracts for Lena.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,7 +29,7 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/core": "0.2.0",
+		"@lena-inc/core": "0.2.1",
 		"drizzle-orm": "0.45.2",
 		"drizzle-zod": "0.8.3",
 		"es-toolkit": "1.52.0",

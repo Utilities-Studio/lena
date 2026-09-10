@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/backup",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Immutable encrypted backup, staged restore, and retention contracts for Lena.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,8 +29,8 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/core": "0.2.0",
-		"@lena-inc/vault": "0.2.0",
+		"@lena-inc/core": "0.2.1",
+		"@lena-inc/vault": "0.2.1",
 		"canonicalize": "4.0.0",
 		"drizzle-orm": "0.45.2",
 		"es-toolkit": "1.52.0",

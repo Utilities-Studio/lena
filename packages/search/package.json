@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/search",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "FTS5, vector, ranking, and rebuild contracts for Lena local search.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,7 +29,7 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/core": "0.2.0",
+		"@lena-inc/core": "0.2.1",
 		"es-toolkit": "1.52.0",
 		"ts-pattern": "5.9.0",
 		"zod": "4.5.4"

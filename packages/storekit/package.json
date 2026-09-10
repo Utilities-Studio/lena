@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/storekit",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "StoreKit 2 product and entitlement authority for Lena applications.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,7 +29,7 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/core": "0.2.0",
+		"@lena-inc/core": "0.2.1",
 		"date-fns": "4.4.0",
 		"es-toolkit": "1.52.0",
 		"ts-pattern": "5.9.0",
