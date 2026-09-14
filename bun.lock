@@ -27,24 +27,24 @@
       "name": "@lena-inc/ai",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/core": "0.2.1",
         "compare-versions": "6.1.1",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
     "packages/backup": {
       "name": "@lena-inc/backup",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/core": "0.2.0",
-        "@lena-inc/vault": "0.2.0",
-        "canonicalize": "4.0.0",
+        "@lena-inc/core": "0.2.1",
+        "@lena-inc/vault": "0.2.1",
+        "canonicalize": "5.0.0",
         "drizzle-orm": "0.45.2",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
     "packages/core": {
@@ -54,14 +54,14 @@
         "date-fns": "4.4.0",
         "es-toolkit": "1.52.0",
         "neverthrow": "8.2.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
     "packages/expo-sqlite": {
       "name": "@lena-inc/expo-sqlite",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/vault": "0.2.0",
+        "@lena-inc/vault": "0.2.1",
         "es-toolkit": "1.52.0",
       },
     },
@@ -69,10 +69,10 @@
       "name": "@lena-inc/google-drive",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/backup": "0.2.0",
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/backup": "0.2.1",
+        "@lena-inc/core": "0.2.1",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
       "devDependencies": {
         "react-native-cloud-storage": "3.1.0",
@@ -85,7 +85,7 @@
       "name": "@lena-inc/gps",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/core": "0.2.1",
         "@turf/bbox": "7.4.0",
         "@turf/boolean-point-in-polygon": "7.4.0",
         "@turf/distance": "7.4.0",
@@ -94,17 +94,17 @@
         "es-toolkit": "1.52.0",
         "flatbush": "4.6.2",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
     "packages/icloud": {
       "name": "@lena-inc/icloud",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/backup": "0.2.0",
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/backup": "0.2.1",
+        "@lena-inc/core": "0.2.1",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
       "devDependencies": {
         "react-native-cloud-storage": "3.1.0",
@@ -117,17 +117,17 @@
       "name": "@lena-inc/manual-backup",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/backup": "0.2.0",
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/backup": "0.2.1",
+        "@lena-inc/core": "0.2.1",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
     "packages/op-sqlite": {
       "name": "@lena-inc/op-sqlite",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/vault": "0.2.0",
+        "@lena-inc/vault": "0.2.1",
         "es-toolkit": "1.52.0",
       },
     },
@@ -135,24 +135,24 @@
       "name": "@lena-inc/search",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/core": "0.2.1",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
     "packages/storekit": {
       "name": "@lena-inc/storekit",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/core": "0.2.1",
         "date-fns": "4.4.0",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
       "devDependencies": {
-        "expo-iap": "5.5.1",
+        "expo-iap": "5.6.0",
       },
       "peerDependencies": {
         "expo-iap": "5.5.1",
@@ -162,21 +162,21 @@
       "name": "@lena-inc/sync",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/core": "0.2.1",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
     "packages/vault": {
       "name": "@lena-inc/vault",
       "version": "0.2.1",
       "dependencies": {
-        "@lena-inc/core": "0.2.0",
+        "@lena-inc/core": "0.2.1",
         "drizzle-orm": "0.45.2",
         "drizzle-zod": "0.8.3",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
-        "zod": "4.5.4",
+        "zod": "4.6.5",
       },
     },
   },
@@ -1039,7 +1039,7 @@
 
     "caniuse-lite": ["caniuse-lite@1.0.30001810", "", {}, "sha512-TITQPUkaz+aVk5GL6NhOdwk1aEaNTSDPsGFWrTuhKGtjTF70jL/Oht2W4c6rXUe5fu7Ie19VIahAXHIIiWWNeg=="],
 
-    "canonicalize": ["canonicalize@4.0.0", "", { "bin": { "canonicalize": "bin/canonicalize.js" } }, "sha512-FEdXzwWs+N3rZqEqpqleiY9M1A6IAf9oo1zHFABnLW9FcJ/jzsu+G/Ks3Hq3FglmPKe80GeGBw8ZXLEnwPB0vQ=="],
+    "canonicalize": ["canonicalize@5.0.0", "", { "bin": { "canonicalize": "bin/canonicalize.js" } }, "sha512-O/NCg79G0/TWoD3Fo6scOMfP4p7/TsxRXVmRo9mEfD6h/5y5o1wtVbKyBO0E2i7FEcqe5tRijyAH/IWHIHMH4w=="],
 
     "chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
 
@@ -1175,7 +1175,7 @@
 
     "expo-font": ["expo-font@57.0.3", "", { "dependencies": { "fontfaceobserver": "^2.1.0" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-kiVUnc2A8vAvO2FfDJTsQa5BwmY+PAkof/1wRb5MOkcX1jtiaSTwz9gCUAyscMBFLundZDmZrLy1P7LZVC+NvA=="],
 
-    "expo-iap": ["expo-iap@5.5.1", "", { "peerDependencies": { "@amazon-devices/keplerscript-appstore-iap-lib": "~2.13.0", "@amazon-devices/package-manager-lib": "~1.0.1767254401", "expo": "*", "react": "*", "react-native": "*" }, "optionalPeers": ["@amazon-devices/keplerscript-appstore-iap-lib", "@amazon-devices/package-manager-lib"] }, "sha512-8x4MkAPl+jUBo/syLllShqDhnK+xb8gAQtYEdb5WG3iyFhpofjVy4lEy+1AUn2THzHq9LDSNN4zAD8m041VwDg=="],
+    "expo-iap": ["expo-iap@5.6.0", "", { "peerDependencies": { "@amazon-devices/keplerscript-appstore-iap-lib": "~2.13.0", "@amazon-devices/package-manager-lib": "~1.0.1767254401", "expo": "*", "react": "*", "react-native": "*" }, "optionalPeers": ["@amazon-devices/keplerscript-appstore-iap-lib", "@amazon-devices/package-manager-lib"] }, "sha512-Rqz8wrxAMuOTNpdOxSpizFRQmNQIQ+cpHY/120rT8HY8XZmlp7EiCnNT9Ybh61W4XIpGVSwNLm4ETH01DfmRCA=="],
 
     "expo-keep-awake": ["expo-keep-awake@57.0.1", "", { "peerDependencies": { "expo": "*", "react": "*" } }, "sha512-28lkFImeXTS+bhAjuCFV7w7tW5bXg27BJVrxv+nC/nyYa86qEa0oFeHwqol6ha5k4pdVDQgBF09GM4A1k76Ssg=="],
 
@@ -1887,7 +1887,7 @@
 
     "zeptomatch": ["zeptomatch@2.1.0", "", { "dependencies": { "grammex": "^3.1.11", "graphmatch": "^1.1.0" } }, "sha512-KiGErG2J0G82LSpniV0CtIzjlJ10E04j02VOudJsPyPwNZgGnRKQy7I1R7GMyg/QswnE4l7ohSGrQbQbjXPPDA=="],
 
-    "zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
+    "zod": ["zod@4.6.5", "", {}, "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="],
 
     "@arethetypeswrong/core/typescript": ["typescript@5.6.1-rc", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-E3b2+1zEFu84jB0YQi9BORDjz9+jGbwwy1Zi3G0LUNw7a7cePUrHMRNy8aPh53nXpkFGVHSxIZo5vKTfYaFiBQ=="],
 

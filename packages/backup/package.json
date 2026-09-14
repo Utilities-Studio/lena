@@ -31,10 +31,10 @@
 	"dependencies": {
 		"@lena-inc/core": "0.2.1",
 		"@lena-inc/vault": "0.2.1",
-		"canonicalize": "4.0.0",
+		"canonicalize": "5.0.0",
 		"drizzle-orm": "0.45.2",
 		"es-toolkit": "1.52.0",
 		"ts-pattern": "5.9.0",
-		"zod": "4.5.4"
+		"zod": "4.6.5"
 	}
 }
