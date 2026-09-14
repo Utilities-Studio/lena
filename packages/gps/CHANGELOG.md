@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.2.2](https://github.com/Utilities-Studio/lena/compare/%40lena-inc%2Fgps%400.2.1...%40lena-inc%2Fgps%400.2.2) (2026-09-14)
+
+**Note:** Version bump only for package @lena-inc/gps
+
 ## [0.2.1](https://github.com/Utilities-Studio/lena/compare/%40lena-inc%2Fgps%400.2.0...%40lena-inc%2Fgps%400.2.1) (2026-09-10)
 
 ### Bug Fixes

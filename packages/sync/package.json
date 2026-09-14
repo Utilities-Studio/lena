@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/sync",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Disabled-by-default hosted-sync consent and conflict contracts for Lena.",
 	"license": "UNLICENSED",
 	"publishConfig": {
@@ -29,7 +29,7 @@
 		}
 	},
 	"dependencies": {
-		"@lena-inc/core": "0.2.1",
+		"@lena-inc/core": "0.2.2",
 		"ts-pattern": "5.9.0",
 		"zod": "4.6.5"
 	}
