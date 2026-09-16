@@ -26,6 +26,7 @@
 			"@lena-inc/op-sqlite": ["./packages/op-sqlite/src/index"],
 			"@lena-inc/search": ["./packages/search/src/index"],
 			"@lena-inc/storekit": ["./packages/storekit/src/index"],
+			"@lena-inc/storage": ["./packages/storage/src/index"],
 			"@lena-inc/sync": ["./packages/sync/src/index"],
 			"@lena-inc/vault": ["./packages/vault/src/index"]
 		},

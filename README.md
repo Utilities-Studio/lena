@@ -81,6 +81,7 @@ Lena uses its own package scope:
 
 ```text
 @lena-inc/core
+@lena-inc/storage
 @lena-inc/vault
 @lena-inc/op-sqlite
 @lena-inc/expo-sqlite
@@ -101,6 +102,13 @@ repository remains owned by Utilities Studio at <https://github.com/utilities-st
 The `@lena-inc` registry scope must be reserved before public packages are published. During local development, applications consume the packages from this sibling workspace.
 
 ## Package responsibilities
+
+### `@lena-inc/storage`
+
+Expo settings persistence with `defineStore` and `useStoreValue` from one import. Zod validates
+JSON, `expo-sqlite/kv-store` persists it, and React subscribes to changes. Apps supply only their
+key and schema. This is a working source integration for ordinary settings, not an encrypted
+vault, secret store or database readiness adapter. Native/device behavior remains unproven.
 
 ### `@lena-inc/core`
 

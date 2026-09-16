@@ -1,6 +1,6 @@
 # Lena implementation status
 
-Last verified: 2026-09-10. The full local gate passes after the Lerna-Lite migration.
+Last verified: 2026-09-16. All local quality-gate stages pass, including Expo settings storage.
 
 ## Status language
 
@@ -18,6 +18,7 @@ Last verified: 2026-09-10. The full local gate passes after the Lerna-Lite migra
 | ------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Repository foundation     | Package identity and release configuration complete; full local gate passes | Owner-run npm bootstrap, license decision, trusted-publisher setup, and first workflow evidence                    |
 | `@lena-inc/core`          | Contract complete                                                           | Consuming-application integration                                                                                  |
+| `@lena-inc/storage`       | Expo settings source-integrated; consumed locally by rn-apps                | Owner-run publication and native/device verification                                                               |
 | `@lena-inc/vault`         | Portable schema, transaction, and restore-classification contract complete  | Host migration artifacts, closed encrypted SQLite runtime, native pointer lifecycle, interruption and device proof |
 | `@lena-inc/op-sqlite`     | Readiness contract complete                                                 | Approved native driver, SQLCipher runtime, benchmarks, recovery and device proof                                   |
 | `@lena-inc/expo-sqlite`   | Readiness contract complete                                                 | Native adapter, SQLCipher runtime, recovery and device proof                                                       |
@@ -39,6 +40,24 @@ cloud-provider capability objects and StoreKit capability object also keep nativ
 false.
 
 ## Verified local evidence
+
+### Expo settings storage, 2026-09-16
+
+- Added `@lena-inc/storage` with one public entry: `defineStore({ key, schema })` and
+  `useStoreValue`. Expo SQLite and React are direct host peers. No backend protocol or subpaths.
+- Reused the rn-apps settings behavior: JSON keys/values unchanged, invalid reads preserve bytes,
+  stable snapshots, notifications after successful writes/clears, and safe invalid-write errors.
+- `rn-apps/packages/storage` removed. Both apps consume the built local archive until owner-run
+  publication. No source imports, registry publication, schema/data migration or native build.
+- Thirteen focused storage tests, including property cases and mocked Expo failures, pass.
+  Built declarations, Publint and Are the Types Wrong pass. Consuming apps pass type-aware lint
+  and 277 tests after moving their nine shared storage tests into Lena's expanded suite.
+- Final Lena checks pass: formatting, all 14 builds/artifact checks, type-aware lint, 250 tests
+  across 34 files, and Knip (one existing Lefthook configuration hint). Obsolete broken generated
+  links from the old isolated dependency layout were preserved outside the checkout so hoisted
+  dependencies resolve. rn-apps formatting/lint/tests pass; its gate still reports the existing
+  27 unused-export/type Knip findings.
+- This is source integration, not signed-device storage or encrypted-vault evidence.
 
 ### Infra Lerna-Lite adoption, 2026-09-10
 

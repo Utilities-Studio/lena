@@ -48,6 +48,11 @@ The local vault is authoritative in both Private Vault and future Hosted Sync mo
 
 ## Canonical versus derived data
 
+`@lena-inc/storage` is a separate Expo settings utility. It directly uses Expo SQLite's key-value
+store and React, with a single public entry. It does not depend on core/vault or implement their
+authority and recovery protocols. Apps own the settings keys and schemas. Invalid saved settings
+return `null` without deleting bytes; this behavior must never authorize a vault operation.
+
 Canonical data includes application records, relationships, canonical attachments, vault metadata, and durable recovery obligations. It is encrypted and backed up.
 
 Derived data includes FTS indexes, embeddings, cached rankings, generated summaries, temporary previews, and model files. It is versioned against canonical source data and may be deleted or rebuilt without losing user work.

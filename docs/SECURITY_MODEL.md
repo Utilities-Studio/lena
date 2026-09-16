@@ -113,4 +113,9 @@ stacks. Internal causes are never included by default.
 
 ## Explicit non-claims
 
+`@lena-inc/storage` uses ordinary Expo key-value persistence, not the encrypted local vault.
+It provides no secrecy, backup, authorization or recovery guarantee. Validation failures never
+delete stored bytes; invalid writes expose a code-owned error rather than raw Zod diagnostics.
+Use SecureStore for secrets and the app's canonical database for domain data.
+
 Repository tests do not prove zero knowledge, signed-device key protection, provider confidentiality, App Store behavior, operating-system background execution, or resistance to a compromised unlocked device. Those require evidence at the corresponding boundary.
