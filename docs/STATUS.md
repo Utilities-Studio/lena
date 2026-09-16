@@ -43,6 +43,14 @@ false.
 
 ### Expo settings storage, 2026-09-16
 
+- A later owner pre-push run exposed an incorrect property expectation for nested own
+  `__proto__` keys. The exact seed/path reproduced it: Zod stripped the key before storage
+  received the value, but the assertion compared against unvalidated input. The property now
+  checks validated JSON and persisted bytes. A named regression covers normalization, unchanged
+  raw bytes on reads, and neighboring-key isolation. The exact replay and 14 storage tests pass;
+  production storage code is unchanged. The full gate passes after correction: formatting,
+  14 builds/artifact checks, type-aware lint, 251 tests across 34 files, and Knip with its existing
+  Lefthook configuration hint.
 - Added `@lena-inc/storage` with one public entry: `defineStore({ key, schema })` and
   `useStoreValue`. Expo SQLite and React are direct host peers. No backend protocol or subpaths.
 - Reused the rn-apps settings behavior: JSON keys/values unchanged, invalid reads preserve bytes,

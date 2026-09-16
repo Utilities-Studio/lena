@@ -110,13 +110,34 @@ describe('Expo settings store', () => {
 		expect(store.read()).toEqual({ name: 'Ada' })
 		expect(calls).toBe(0)
 	})
-	test('JSON settings round-trip without changing neighboring keys', () => {
+	test('nested own __proto__ keys follow Zod normalization without mutating reads or neighbors', () => {
+		const value = [{ '': { ['__proto__']: null } }]
+		const raw = JSON.stringify(value)
+		const expected = [{ '': {} }]
+		values.set('settings', raw)
+		values.set('neighbor', 'preserved')
+		const store = defineStore({ key: 'settings', schema: z.json() })
+
+		expect(raw).toBe('[{"":{"__proto__":null}}]')
+		expect(store.read()).toEqual(expected)
+		expect(values.get('settings')).toBe(raw)
+		expect(values.get('neighbor')).toBe('preserved')
+
+		store.write(value)
+		expect(values.get('settings')).toBe('[{"":{}}]')
+		expect(store.read()).toEqual(expected)
+		expect(values.get('neighbor')).toBe('preserved')
+	})
+	test('validated JSON settings round-trip without changing neighboring keys', () => {
 		assert(
 			property(jsonValue(), (value) => {
 				values.set('neighbor', 'preserved')
 				const store = defineStore({ key: 'settings', schema: z.json() })
-				store.write(z.json().parse(value))
-				expect(store.read()).toEqual(JSON.parse(JSON.stringify(value)))
+				// Zod normalizes JSON, including stripping own __proto__ keys.
+				const validated = z.json().parse(value)
+				store.write(validated)
+				expect(values.get('settings')).toBe(JSON.stringify(validated))
+				expect(store.read()).toEqual(JSON.parse(JSON.stringify(validated)))
 				expect(values.get('neighbor')).toBe('preserved')
 			})
 		)
