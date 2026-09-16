@@ -27,7 +27,7 @@
       "name": "@lena-inc/ai",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/core": "0.2.2",
         "compare-versions": "6.1.1",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
@@ -38,8 +38,8 @@
       "name": "@lena-inc/backup",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/core": "0.2.1",
-        "@lena-inc/vault": "0.2.1",
+        "@lena-inc/core": "0.2.2",
+        "@lena-inc/vault": "0.2.2",
         "canonicalize": "5.0.0",
         "drizzle-orm": "0.45.2",
         "es-toolkit": "1.52.0",
@@ -61,7 +61,7 @@
       "name": "@lena-inc/expo-sqlite",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/vault": "0.2.1",
+        "@lena-inc/vault": "0.2.2",
         "es-toolkit": "1.52.0",
       },
     },
@@ -69,8 +69,8 @@
       "name": "@lena-inc/google-drive",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/backup": "0.2.1",
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/backup": "0.2.2",
+        "@lena-inc/core": "0.2.2",
         "ts-pattern": "5.9.0",
         "zod": "4.6.5",
       },
@@ -85,7 +85,7 @@
       "name": "@lena-inc/gps",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/core": "0.2.2",
         "@turf/bbox": "7.4.0",
         "@turf/boolean-point-in-polygon": "7.4.0",
         "@turf/distance": "7.4.0",
@@ -101,8 +101,8 @@
       "name": "@lena-inc/icloud",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/backup": "0.2.1",
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/backup": "0.2.2",
+        "@lena-inc/core": "0.2.2",
         "ts-pattern": "5.9.0",
         "zod": "4.6.5",
       },
@@ -117,8 +117,8 @@
       "name": "@lena-inc/manual-backup",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/backup": "0.2.1",
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/backup": "0.2.2",
+        "@lena-inc/core": "0.2.2",
         "ts-pattern": "5.9.0",
         "zod": "4.6.5",
       },
@@ -127,7 +127,7 @@
       "name": "@lena-inc/op-sqlite",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/vault": "0.2.1",
+        "@lena-inc/vault": "0.2.2",
         "es-toolkit": "1.52.0",
       },
     },
@@ -135,7 +135,7 @@
       "name": "@lena-inc/search",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/core": "0.2.2",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
         "zod": "4.6.5",
@@ -143,7 +143,7 @@
     },
     "packages/storage": {
       "name": "@lena-inc/storage",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "zod": "4.6.5",
       },
@@ -162,7 +162,7 @@
       "name": "@lena-inc/storekit",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/core": "0.2.2",
         "date-fns": "4.4.0",
         "es-toolkit": "1.52.0",
         "ts-pattern": "5.9.0",
@@ -179,7 +179,7 @@
       "name": "@lena-inc/sync",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/core": "0.2.2",
         "ts-pattern": "5.9.0",
         "zod": "4.6.5",
       },
@@ -188,7 +188,7 @@
       "name": "@lena-inc/vault",
       "version": "0.2.2",
       "dependencies": {
-        "@lena-inc/core": "0.2.1",
+        "@lena-inc/core": "0.2.2",
         "drizzle-orm": "0.45.2",
         "drizzle-zod": "0.8.3",
         "es-toolkit": "1.52.0",

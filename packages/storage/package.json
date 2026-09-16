@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/storage",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Validated React settings stores backed by Expo SQLite.",
 	"license": "UNLICENSED",
 	"publishConfig": {
