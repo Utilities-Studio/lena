@@ -77,6 +77,21 @@ before timezone APIs.
 
 `usehooks-ts` is excluded because it is browser-oriented and is not a React Native foundation.
 
+## Expo settings stores
+
+`@lena-inc/storage` re-exports zustand-x and adds only `createLenaStorage`, the validated
+`expo-sqlite/kv-store` persistence that zustand-x does not own. These stores hold ordinary
+settings and never become vault, payment, backup, restore or sync authority.
+
+| Library     | Approved version | Ownership and boundary                                                                                           |
+| ----------- | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `zustand-x` | `6.2.1`          | Store factory, actions, selectors and hooks, re-exported unchanged. Apps import it from `@lena-inc/storage`.     |
+| `mutative`  | `1.1.0`          | Draft updates behind the zustand-x `mutative` option. Pinned to the exact version zustand-x 6.2.1 depends on.    |
+| `zustand`   | peer `^5.0.2`    | Host-installed store runtime and `persist` middleware. zustand-x requires 5.0.2 or later; Lena tests use 5.0.15. |
+
+Lena source never imports `mutative`; zustand-x does. It is declared by owner decision so the
+version ships with Lena, and `knip.json` ignores it for that reason.
+
 ## Batch A: Local encrypted database
 
 `drizzle-orm@0.45.2` and `zod@4.5.4` are already approved for one portable canonical mapping in

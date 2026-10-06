@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
-import { assert, jsonValue, property, string } from 'fast-check'
+import { assert, constantFrom, property, record, string } from 'fast-check'
 import { z } from 'zod'
 
 const values = new Map<string, string>()
@@ -13,140 +13,143 @@ const removeItemSync = mock((key: string) => {
 await mock.module('expo-sqlite/kv-store', () => ({
 	default: { getItemSync, setItemSync, removeItemSync }
 }))
-const { defineStore } = await import('../src/index')
-const schema = z.strictObject({ name: z.string().min(1) })
-const makeStore = () => defineStore({ key: 'profile', schema })
+// react-tracked's browser build imports react-dom; Metro resolves its React Native build instead.
+await mock.module('react-dom', () => ({
+	unstable_batchedUpdates: (update: () => void) => {
+		update()
+	}
+}))
+const { createLenaStorage, createStore } = await import('../src/index')
+
+const schema = z.strictObject({
+	name: z.string().min(1),
+	theme: z.enum(['light', 'dark'])
+})
+type Profile = z.output<typeof schema>
+const initial: Profile = { name: 'Guest', theme: 'light' }
+const makeStore = () =>
+	createStore(initial, {
+		name: 'profile',
+		mutative: true,
+		persist: { enabled: true, storage: createLenaStorage(schema) }
+	})
+
 beforeEach(() => {
 	values.clear()
+	values.set('neighbor', 'preserved')
+	setItemSync.mockClear()
+	removeItemSync.mockClear()
 })
 
-describe('Expo settings store', () => {
-	test('missing settings return null', () => {
-		expect(makeStore().read()).toBeNull()
-	})
-	test('round-trips an existing app key without changing its JSON representation', () => {
-		values.set('profile', '{"name":"Ada"}')
+describe('Lena zustand-x storage', () => {
+	test('missing settings keep the initial state and write nothing', () => {
 		const store = makeStore()
-		expect(store.read()).toEqual({ name: 'Ada' })
-		store.write({ name: 'Lin' })
-		expect(setItemSync).toHaveBeenLastCalledWith('profile', '{"name":"Lin"}')
+		expect(store.get('state')).toEqual(initial)
+		expect(setItemSync).not.toHaveBeenCalled()
+		expect(values.has('profile')).toBe(false)
 	})
-	test('malformed JSON is unavailable but never deleted', () => {
-		values.set('profile', 'not json')
-		expect(makeStore().read()).toBeNull()
-		expect(values.get('profile')).toBe('not json')
-	})
-	test('schema-invalid JSON is unavailable but never deleted', () => {
-		values.set('profile', '{"name":""}')
-		expect(makeStore().read()).toBeNull()
-		expect(values.get('profile')).toBe('{"name":""}')
-	})
-	test('unchanged raw data keeps a stable snapshot', () => {
+	test('saved settings load synchronously when the store is created', () => {
+		values.set('profile', '{"name":"Ada","theme":"dark"}')
 		const store = makeStore()
-		store.write({ name: 'Ada' })
-		expect(store.read()).toBe(store.read())
+		expect(store.store.persist.hasHydrated()).toBe(true)
+		expect(store.get('state')).toEqual({ name: 'Ada', theme: 'dark' })
+		expect(setItemSync).not.toHaveBeenCalled()
 	})
-	test('changed raw data replaces the snapshot', () => {
+	test('writes keep the existing raw JSON format under the same key', () => {
+		values.set('profile', '{"name":"Ada","theme":"dark"}')
 		const store = makeStore()
-		store.write({ name: 'Ada' })
-		const first = store.read()
-		store.write({ name: 'Lin' })
-		expect(store.read()).not.toBe(first)
-	})
-	test('clear removes only the selected key', () => {
-		values.set('neighbor', 'preserved')
-		const store = makeStore()
-		store.write({ name: 'Ada' })
-		store.clear()
-		expect(store.read()).toBeNull()
+		store.set('name', 'Lin')
+		expect(setItemSync).toHaveBeenLastCalledWith(
+			'profile',
+			'{"name":"Lin","theme":"dark"}'
+		)
 		expect(values.get('neighbor')).toBe('preserved')
 	})
-	test('successful writes and clear notify subscribers', () => {
-		const store = makeStore()
-		let calls = 0
-		store.subscribe(() => {
-			calls += 1
-		})
-		store.write({ name: 'Ada' })
-		store.clear()
-		expect(calls).toBe(2)
-	})
-	test('unsubscribe removes the listener', () => {
-		const store = makeStore()
-		let calls = 0
-		const unsubscribe = store.subscribe(() => {
-			calls += 1
-		})
-		unsubscribe()
-		store.write({ name: 'Ada' })
-		expect(calls).toBe(0)
-	})
-	test('invalid writes preserve the old value without exposing Zod payloads', () => {
-		const store = makeStore()
-		store.write({ name: 'Ada' })
-		let calls = 0
-		store.subscribe(() => {
-			calls += 1
-		})
-		expect(() => store.write({ name: '' })).toThrow('Invalid settings value')
-		expect(store.read()).toEqual({ name: 'Ada' })
-		expect(calls).toBe(0)
-	})
-	test('Expo failures never notify or replace the last committed value', () => {
+	test('saved settings without a newer field merge with its initial value', () => {
 		values.set('profile', '{"name":"Ada"}')
 		const store = makeStore()
-		let calls = 0
-		store.subscribe(() => {
-			calls += 1
-		})
+		expect(store.get('state')).toEqual({ name: 'Ada', theme: 'light' })
+		expect(values.get('profile')).toBe('{"name":"Ada"}')
+	})
+	test.each([
+		['malformed JSON', 'not json'],
+		['a non-object value', '"Ada"'],
+		['a schema-invalid field', '{"name":"","theme":"dark"}'],
+		['an unknown field', '{"name":"Ada","theme":"dark","extra":true}']
+	])(
+		'%s loads the initial state and is never deleted on read',
+		(_case, raw) => {
+			values.set('profile', raw)
+			const store = makeStore()
+			expect(store.get('state')).toEqual(initial)
+			expect(values.get('profile')).toBe(raw)
+			expect(setItemSync).not.toHaveBeenCalled()
+			expect(removeItemSync).not.toHaveBeenCalled()
+		}
+	)
+	test('an invalid state is never persisted and fails without Zod details', () => {
+		values.set('profile', '{"name":"Ada","theme":"dark"}')
+		const store = makeStore()
+		expect(() => store.set('name', '')).toThrow(
+			new TypeError('Invalid settings value')
+		)
+		expect(values.get('profile')).toBe('{"name":"Ada","theme":"dark"}')
+		expect(makeStore().get('name')).toBe('Ada')
+	})
+	test('actions that validate before set keep memory and storage unchanged', () => {
+		const store = makeStore().extendActions(({ set }) => ({
+			rename: (name: string) => {
+				set('name', schema.shape.name.parse(name))
+			}
+		}))
+		store.actions.rename('Ada')
+		expect(() => store.actions.rename('')).toThrow()
+		expect(store.get('name')).toBe('Ada')
+		expect(values.get('profile')).toBe('{"name":"Ada","theme":"light"}')
+	})
+	test('Expo write failures propagate and keep the saved bytes', () => {
+		values.set('profile', '{"name":"Ada","theme":"dark"}')
+		const store = makeStore()
 		setItemSync.mockImplementationOnce(() => {
 			throw new Error('write unavailable')
 		})
-		removeItemSync.mockImplementationOnce(() => {
-			throw new Error('remove unavailable')
-		})
-		expect(() => store.write({ name: 'Lin' })).toThrow('write unavailable')
-		expect(() => store.clear()).toThrow('remove unavailable')
-		expect(store.read()).toEqual({ name: 'Ada' })
-		expect(calls).toBe(0)
+		expect(() => store.set('name', 'Lin')).toThrow('write unavailable')
+		expect(values.get('profile')).toBe('{"name":"Ada","theme":"dark"}')
 	})
-	test('nested own __proto__ keys follow Zod normalization without mutating reads or neighbors', () => {
-		const value = [{ '': { ['__proto__']: null } }]
-		const raw = JSON.stringify(value)
-		const expected = [{ '': {} }]
-		values.set('settings', raw)
-		values.set('neighbor', 'preserved')
-		const store = defineStore({ key: 'settings', schema: z.json() })
-
-		expect(raw).toBe('[{"":{"__proto__":null}}]')
-		expect(store.read()).toEqual(expected)
-		expect(values.get('settings')).toBe(raw)
-		expect(values.get('neighbor')).toBe('preserved')
-
-		store.write(value)
-		expect(values.get('settings')).toBe('[{"":{}}]')
-		expect(store.read()).toEqual(expected)
+	test('clearing storage removes only the store key', () => {
+		const store = makeStore()
+		store.set('name', 'Ada')
+		store.store.persist.clearStorage()
+		expect(removeItemSync).toHaveBeenCalledWith('profile')
+		expect(values.has('profile')).toBe(false)
 		expect(values.get('neighbor')).toBe('preserved')
 	})
-	test('validated JSON settings round-trip without changing neighboring keys', () => {
+	test('object schemas with refinements are rejected when the storage is created', () => {
+		const refined = schema.refine((profile) => profile.name !== profile.theme)
+		expect(() => createLenaStorage(refined)).toThrow()
+	})
+	test('valid states persist byte-identically and load back unchanged', () => {
 		assert(
-			property(jsonValue(), (value) => {
-				values.set('neighbor', 'preserved')
-				const store = defineStore({ key: 'settings', schema: z.json() })
-				// Zod normalizes JSON, including stripping own __proto__ keys.
-				const validated = z.json().parse(value)
-				store.write(validated)
-				expect(values.get('settings')).toBe(JSON.stringify(validated))
-				expect(store.read()).toEqual(JSON.parse(JSON.stringify(validated)))
-				expect(values.get('neighbor')).toBe('preserved')
-			})
+			property(
+				record({
+					name: string({ minLength: 1 }),
+					theme: constantFrom('light', 'dark')
+				}),
+				(profile) => {
+					values.delete('profile')
+					makeStore().set('state', profile)
+					expect(values.get('profile')).toBe(JSON.stringify(profile))
+					expect(makeStore().get('state')).toEqual(profile)
+					expect(values.get('neighbor')).toBe('preserved')
+				}
+			)
 		)
 	})
-	test('arbitrary corrupt reads never mutate persisted bytes', () => {
+	test('arbitrary corrupt bytes never change when a store loads', () => {
 		assert(
 			property(string(), (raw) => {
 				values.set('profile', raw)
-				makeStore().read()
+				makeStore()
 				expect(values.get('profile')).toBe(raw)
 			})
 		)

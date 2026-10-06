@@ -105,10 +105,11 @@ The `@lena-inc` registry scope must be reserved before public packages are publi
 
 ### `@lena-inc/storage`
 
-Expo settings persistence with `defineStore` and `useStoreValue` from one import. Zod validates
-JSON, `expo-sqlite/kv-store` persists it, and React subscribes to changes. Apps supply only their
-key and schema. This is a working source integration for ordinary settings, not an encrypted
-vault, secret store or database readiness adapter. Native/device behavior remains unproven.
+zustand-x settings stores from one import, persisted through `createLenaStorage(schema)`. Zod
+validates JSON and `expo-sqlite/kv-store` persists it under the store name. Apps supply the store
+name, schema, initial state and actions. This is a working source integration for ordinary
+settings, not an encrypted vault, secret store or database readiness adapter. Native/device
+behavior remains unproven.
 
 ### `@lena-inc/core`
 

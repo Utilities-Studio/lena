@@ -1,69 +1,60 @@
 import Storage from 'expo-sqlite/kv-store'
-import { useSyncExternalStore } from 'react'
-import { type output, type ZodType } from 'zod'
+import {
+	type core,
+	type output,
+	type ZodExactOptional,
+	type ZodObject
+} from 'zod'
+import { type PersistStorage } from 'zustand/middleware'
 
-export type Store<Value> = {
-	read: () => Value | null
-	write: (value: Value) => void
-	clear: () => void
-	subscribe: (listener: () => void) => () => void
-}
+export * from 'zustand-x'
 
-export type DefineStoreOptions<Schema extends ZodType> = {
-	key: string
-	schema: Schema
-}
+type SavedSettings<
+	Shape extends core.$ZodShape,
+	Config extends core.$ZodObjectConfig
+> = output<
+	ZodObject<
+		{ -readonly [K in keyof Shape]: ZodExactOptional<Shape[K]> },
+		Config
+	>
+>
 
-/** Non-sensitive JSON settings. Invalid saved values are unavailable, never deleted on read. */
-export function defineStore<Schema extends ZodType>({
-	key,
-	schema
-}: DefineStoreOptions<Schema>): Store<output<Schema>> {
-	type Value = output<Schema>
-	const listeners = new Set<() => void>()
-	let cache: { raw: string | null; value: Value | null } | null = null
-
-	function decode(raw: string | null): Value | null {
-		if (raw === null) return null
-		try {
-			const parsed = schema.safeParse(JSON.parse(raw))
-			return parsed.success ? parsed.data : null
-		} catch {
-			return null
-		}
-	}
-	function notify() {
-		for (const listener of listeners) listener()
-	}
-	function read(): Value | null {
-		const raw = Storage.getItemSync(key)
-		if (cache !== null && cache.raw === raw) return cache.value
-		const value = decode(raw)
-		cache = { raw, value }
-		return value
-	}
-
+/**
+ * zustand `persist` storage for non-sensitive JSON settings in `expo-sqlite/kv-store`.
+ *
+ * The persist `name` is the kv key, and the value is the store state as plain JSON, so keys written
+ * before zustand-x load unchanged. Reads accept a partial object so persist merges newly added
+ * fields from the initial state. Absent, malformed or schema-invalid values load as nothing and are
+ * never deleted on read. Writes validate the whole state and never persist an invalid value.
+ */
+export function createLenaStorage<
+	Shape extends core.$ZodShape,
+	Config extends core.$ZodObjectConfig
+>(
+	schema: ZodObject<Shape, Config>
+): PersistStorage<SavedSettings<Shape, Config>> {
+	const saved = schema.exactPartial()
 	return {
-		read,
-		write: (value) => {
-			const parsed = schema.safeParse(value)
+		getItem: (key) => {
+			const raw = Storage.getItemSync(key)
+			if (raw === null) return null
+			let json: unknown
+			try {
+				json = JSON.parse(raw)
+			} catch {
+				return null
+			}
+			const parsed = saved.safeParse(json)
+			// The saved bytes carry no persist version wrapper, so they always load as version 0.
+			return parsed.success ? { state: parsed.data, version: 0 } : null
+		},
+		setItem: (key, { state }) => {
+			const parsed = schema.safeParse(state)
 			if (!parsed.success) throw new TypeError('Invalid settings value')
 			Storage.setItemSync(key, JSON.stringify(parsed.data))
-			notify()
 		},
-		clear: () => {
+		removeItem: (key) => {
 			Storage.removeItemSync(key)
-			notify()
-		},
-		subscribe: (listener) => {
-			listeners.add(listener)
-			return () => {
-				listeners.delete(listener)
-			}
 		}
 	}
-}
-
-export function useStoreValue<Value>(store: Store<Value>): Value | null {
-	return useSyncExternalStore(store.subscribe, store.read, store.read)
 }

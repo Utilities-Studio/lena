@@ -5,7 +5,8 @@
 		"@lerna-lite/publish",
 		"@lerna-lite/version",
 		"conventional-changelog-conventionalcommits",
-		"lefthook"
+		"lefthook",
+		"mutative"
 	],
 	"workspaces": {
 		"packages/*": {

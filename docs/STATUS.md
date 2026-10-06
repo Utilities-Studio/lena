@@ -1,6 +1,6 @@
 # Lena implementation status
 
-Last verified: 2026-09-16. All local quality-gate stages pass, including Expo settings storage.
+Last verified: 2026-10-07. All local quality-gate stages pass, including zustand-x settings storage.
 
 ## Status language
 
@@ -14,32 +14,46 @@ Last verified: 2026-09-16. All local quality-gate stages pass, including Expo se
 
 ## Current status
 
-| Package or slice          | Current status                                                              | Remaining evidence                                                                                                 |
-| ------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Repository foundation     | Package identity and release configuration complete; full local gate passes | Owner-run npm bootstrap, license decision, trusted-publisher setup, and first workflow evidence                    |
-| `@lena-inc/core`          | Contract complete                                                           | Consuming-application integration                                                                                  |
-| `@lena-inc/storage`       | Expo settings source-integrated; consumed locally by rn-apps                | Owner-run publication and native/device verification                                                               |
-| `@lena-inc/vault`         | Portable schema, transaction, and restore-classification contract complete  | Host migration artifacts, closed encrypted SQLite runtime, native pointer lifecycle, interruption and device proof |
-| `@lena-inc/op-sqlite`     | Readiness contract complete                                                 | Approved native driver, SQLCipher runtime, benchmarks, recovery and device proof                                   |
-| `@lena-inc/expo-sqlite`   | Readiness contract complete                                                 | Native adapter, SQLCipher runtime, recovery and device proof                                                       |
-| `@lena-inc/backup`        | Portable protocol and ledger-backed completion complete                     | Crypto/filesystem runtime, provider execution, interruption and fresh-device proof                                 |
-| `@lena-inc/manual-backup` | Contract complete                                                           | File/document-provider runtime and signed-device proof                                                             |
-| `@lena-inc/icloud`        | Static read-only SDK seam source-integrated                                 | Immutable write/delete runtime, entitlements, account-change recovery and signed-device proof                      |
-| `@lena-inc/google-drive`  | Static read-only SDK seam source-integrated                                 | Immutable resumable write/delete runtime, authentication recovery and signed-device proof                          |
-| `@lena-inc/search`        | Portable FTS grammar, ranking, vector/index, and rebuild contracts complete | Keyed Drizzle FTS5/sqlite-vec executor, real adapter, representative benchmark and device proof                    |
-| `@lena-inc/ai`            | Contract complete                                                           | Runtime selection, model licensing, download execution and device proof                                            |
-| `@lena-inc/storekit`      | Static `expo-iap` service source-integrated                                 | Native configuration, sandbox/TestFlight and account-change proof                                                  |
-| `@lena-inc/gps`           | Portable resolver and indexed geometry contract complete                    | Approved country dataset, native collection and signed-device proof                                                |
-| `@lena-inc/sync`          | Contract complete, hard-disabled                                            | Separate owner-approved Hosted Sync milestone                                                                      |
-| Local package consumption | All 13 packed artifacts install with pre-publish overrides                  | Published-registry install, consumer typecheck, Metro resolution, and native peers                                 |
-| Jetseen Lena adoption     | Not started                                                                 | Package consumption, unified host Drizzle Kit history and app integration                                          |
-| Becoming adoption         | Not started                                                                 | Runtime packages, attachment design and app integration                                                            |
+| Package or slice          | Current status                                                                          | Remaining evidence                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Repository foundation     | Package identity and release configuration complete; full local gate passes             | Owner-run npm bootstrap, license decision, trusted-publisher setup, and first workflow evidence                    |
+| `@lena-inc/core`          | Contract complete                                                                       | Consuming-application integration                                                                                  |
+| `@lena-inc/storage`       | zustand-x stores with validated Expo persistence source-integrated; apps still on 0.2.0 | Owner-run release, Jetseen and Becoming migration, native/device verification                                      |
+| `@lena-inc/vault`         | Portable schema, transaction, and restore-classification contract complete              | Host migration artifacts, closed encrypted SQLite runtime, native pointer lifecycle, interruption and device proof |
+| `@lena-inc/op-sqlite`     | Readiness contract complete                                                             | Approved native driver, SQLCipher runtime, benchmarks, recovery and device proof                                   |
+| `@lena-inc/expo-sqlite`   | Readiness contract complete                                                             | Native adapter, SQLCipher runtime, recovery and device proof                                                       |
+| `@lena-inc/backup`        | Portable protocol and ledger-backed completion complete                                 | Crypto/filesystem runtime, provider execution, interruption and fresh-device proof                                 |
+| `@lena-inc/manual-backup` | Contract complete                                                                       | File/document-provider runtime and signed-device proof                                                             |
+| `@lena-inc/icloud`        | Static read-only SDK seam source-integrated                                             | Immutable write/delete runtime, entitlements, account-change recovery and signed-device proof                      |
+| `@lena-inc/google-drive`  | Static read-only SDK seam source-integrated                                             | Immutable resumable write/delete runtime, authentication recovery and signed-device proof                          |
+| `@lena-inc/search`        | Portable FTS grammar, ranking, vector/index, and rebuild contracts complete             | Keyed Drizzle FTS5/sqlite-vec executor, real adapter, representative benchmark and device proof                    |
+| `@lena-inc/ai`            | Contract complete                                                                       | Runtime selection, model licensing, download execution and device proof                                            |
+| `@lena-inc/storekit`      | Static `expo-iap` service source-integrated                                             | Native configuration, sandbox/TestFlight and account-change proof                                                  |
+| `@lena-inc/gps`           | Portable resolver and indexed geometry contract complete                                | Approved country dataset, native collection and signed-device proof                                                |
+| `@lena-inc/sync`          | Contract complete, hard-disabled                                                        | Separate owner-approved Hosted Sync milestone                                                                      |
+| Local package consumption | All 13 packed artifacts install with pre-publish overrides                              | Published-registry install, consumer typecheck, Metro resolution, and native peers                                 |
+| Jetseen Lena adoption     | Not started                                                                             | Package consumption, unified host Drizzle Kit history and app integration                                          |
+| Becoming adoption         | Not started                                                                             | Runtime packages, attachment design and app integration                                                            |
 
 `runtimeReady` remains `false` for both database targets. Hosted Sync remains unavailable. The
 cloud-provider capability objects and StoreKit capability object also keep native/device readiness
 false.
 
 ## Verified local evidence
+
+### zustand-x settings storage, 2026-10-07
+
+- Replaced `defineStore` and the old `useStoreValue` with a zustand-x re-export plus
+  `createLenaStorage(schema)`, a synchronous zustand `persist` storage over
+  `expo-sqlite/kv-store`. Keys and raw JSON bytes match what 0.2 wrote; no data migration.
+- Added `zustand-x@6.2.1` and `mutative@1.1.0` as dependencies and `zustand@^5.0.2` as a host
+  peer (`5.0.15` for tests), by owner approval.
+- Fifteen storage tests cover synchronous loading, unchanged raw format, partial reads merged with
+  initial state, corrupt or invalid bytes kept on read, invalid states never persisted, Expo
+  failures, clearing, refined-schema rejection, action-level validation, and property cases.
+- The full gate passes: formatting, 14 builds/artifact checks, type-aware lint, 252 tests across
+  34 files, and Knip with its existing Lefthook configuration hint.
+- Apps are not migrated. This is source integration, not release, app adoption or device evidence.
 
 ### Expo settings storage, 2026-09-16
 
