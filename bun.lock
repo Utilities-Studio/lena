@@ -143,7 +143,7 @@
     },
     "packages/storage": {
       "name": "@lena-inc/storage",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "mutative": "1.1.0",
         "zod": "4.6.5",
@@ -159,6 +159,7 @@
       "peerDependencies": {
         "expo-sqlite": "~57.0.3",
         "react": "^19.2.3",
+        "zustand": "^5.0.2",
       },
     },
     "packages/storekit": {

@@ -1,6 +1,6 @@
 {
 	"name": "@lena-inc/storage",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "zustand-x settings stores persisted and validated in Expo SQLite.",
 	"license": "UNLICENSED",
 	"publishConfig": {
